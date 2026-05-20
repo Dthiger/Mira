@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "PowerShell(winget install --id GitHub.cli --silent --accept-source-agreements --accept-package-agreements)",
+      "PowerShell($gh = Join-Path $env:ProgramFiles 'GitHub CLI\\\\gh.exe'; if \\(Test-Path $gh\\) { & $gh --version } else { \"not found at $gh\" })",
+      "PowerShell(& \"$env:ProgramFiles\\\\GitHub CLI\\\\gh.exe\" auth status 2>&1 | Out-String)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
+    ]
+  }
+}
