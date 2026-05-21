@@ -54,3 +54,8 @@ $RECYCLE.BIN/
 *.local
 .tmp/
 tmp/
+
+# Substance Designer autosaves and backups
+.autosave/
+*_backup.sbs
+*.sbs.bak

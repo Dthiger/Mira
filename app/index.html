@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/mira-logo-white-square.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mira — Mask Painter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/mira-logo.png" alt="Mira vision" class="brand-logo" width="99" height="70" />
+      </div>
+
+      <div class="tool-group" role="radiogroup" aria-label="Tool">
+        <button class="icon-btn tool-btn" data-tool="brush" data-icon="brush" aria-pressed="true" title="Brush (B)"></button>
+        <button class="icon-btn tool-btn" data-tool="lasso" data-icon="lasso" aria-pressed="false" title="Lasso (L)"></button>
+        <button class="icon-btn tool-btn" data-tool="bucket" data-icon="bucket" aria-pressed="false" title="Paint bucket (G)"></button>
+      </div>
+
+      <div class="tool-group">
+        <button id="erase-all-toggle" class="icon-btn" data-icon="eraser" aria-pressed="false" title="Erase all (E) - all tools subtract anything they touch"></button>
+        <button id="erase-selected-toggle" class="icon-btn" data-icon="eraser-selected" aria-pressed="false" title="Erase selected color only (Shift+E) - only clears pixels matching the active color"></button>
+      </div>
+
+      <div class="tool-group">
+        <button id="undo-btn" class="icon-btn" data-icon="undo" title="Undo (Ctrl+Z)" disabled></button>
+        <button id="redo-btn" class="icon-btn" data-icon="redo" title="Redo (Ctrl+Shift+Z)" disabled></button>
+      </div>
+
+      <label class="field">
+        <span>Size</span>
+        <input id="size-slider" type="range" min="1" max="200" value="16" />
+        <span id="size-readout" class="readout">16</span>
+      </label>
+
+      <div class="field">
+        <span>Color</span>
+        <div id="color-picker" class="color-picker">
+          <button id="color-trigger" type="button" class="color-picker-trigger" aria-haspopup="listbox" aria-expanded="false">
+            <span id="color-swatch" class="swatch" aria-hidden="true"></span>
+            <span id="color-trigger-label" class="color-trigger-label">001 - unnamed</span>
+            <span class="color-trigger-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div id="color-menu" class="color-picker-menu" role="listbox" hidden></div>
+        </div>
+      </div>
+
+      <label class="field icon-field" title="Load reference image">
+        <span class="icon-host" data-icon="image"></span>
+        <input id="ref-input" type="file" accept="image/*" />
+      </label>
+
+      <label class="field">
+        <span>Ref opacity</span>
+        <input id="ref-opacity" type="range" min="0" max="100" value="50" />
+        <span id="ref-opacity-readout" class="readout">50%</span>
+      </label>
+
+      <div class="spacer"></div>
+
+      <button id="fit-btn" class="icon-btn" data-icon="fit" title="Fit to view (F)"></button>
+      <span id="zoom-readout" class="readout zoom-readout">100%</span>
+
+      <button id="help-btn" class="icon-btn" data-icon="help" title="Help / shortcuts (?)"></button>
+      <button id="export-dist-btn" class="icon-btn primary" data-icon="distance" title="Export distance-fill PNG (16-bit RGBA + JSON sidecar)"></button>
+    </header>
+
+    <main id="stage" class="stage">
+      <div id="canvas-stack" class="canvas-stack">
+        <canvas id="paint-canvas"></canvas>
+        <img id="ref-img" alt="" />
+        <canvas id="overlay-canvas"></canvas>
+        <svg id="brush-cursor" preserveAspectRatio="none" aria-hidden="true">
+          <circle id="brush-cursor-outer" fill="none" stroke="rgba(0,0,0,0.75)" stroke-width="3" vector-effect="non-scaling-stroke"/>
+          <circle id="brush-cursor-inner" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+        </svg>
+      </div>
+      <svg id="lasso-preview" aria-hidden="true">
+        <path id="lasso-path-halo" fill="none" stroke="rgba(0,0,0,0.65)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="lasso-path" fill="none" stroke="#ffffff" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+        <g id="lasso-handles"></g>
+        <circle id="lasso-close" fill="none" stroke="#4f8cff" stroke-width="1.5" visibility="hidden"/>
+      </svg>
+      <div id="cursor-glyph" aria-hidden="true">+</div>
+    </main>
+
+    <footer id="statusbar" class="statusbar" aria-live="polite">
+      <span class="statusbar-label">Pos</span>
+      <span id="status-pos" class="statusbar-value">—</span>
+      <span class="statusbar-sep">·</span>
+      <span class="statusbar-label">Id</span>
+      <span id="status-swatch" class="status-swatch" aria-hidden="true"></span>
+      <span id="status-id" class="statusbar-value statusbar-id">—</span>
+    </footer>
+
+    <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
+      <div class="help-header">
+        <h2 id="help-title">Mira shortcuts</h2>
+        <button id="help-close" class="icon-btn" aria-label="Close help">×</button>
+      </div>
+      <div class="help-content">
+        <section>
+          <h3>Tools</h3>
+          <dl>
+            <dt>Brush</dt><dd>Paint with the active color. Press and drag. <kbd>B</kbd></dd>
+            <dt>Lasso</dt><dd>Click to add control points; the outline is a smooth spline through them, the fill is hard-edged. <kbd>L</kbd></dd>
+            <dt>Paint bucket</dt><dd>Flood-fill the connected region under the cursor. <kbd>G</kbd></dd>
+            <dt>Erase all</dt><dd>All tools subtract anything they touch. <kbd>E</kbd></dd>
+            <dt>Erase selected</dt><dd>All tools subtract only pixels of the currently-selected color (magic eraser). <kbd>Shift</kbd>+<kbd>E</kbd></dd>
+            <dt>Quick erase</dt><dd>Hold <kbd>Ctrl</kbd> while drawing for a one-off erase-all that lasts only while the key is held.</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Lasso details</h3>
+          <dl>
+            <dt>Add point</dt><dd>Click on the canvas</dd>
+            <dt>Freehand trace</dt><dd>Click and drag — points are added along the path</dd>
+            <dt>Close shape</dt><dd>Click on the first point's blue ring, double-click anywhere, or press <kbd>Enter</kbd></dd>
+            <dt>Cancel</dt><dd><kbd>Esc</kbd></dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Viewport</h3>
+          <dl>
+            <dt>Pan</dt><dd>Middle mouse drag (unbounded — push the corner past the viewport if you like)</dd>
+            <dt>Zoom</dt><dd>Mouse wheel — anchored at the cursor</dd>
+            <dt>Fit to view</dt><dd><kbd>F</kbd> or the fit button</dd>
+            <dt>Change brush size</dt><dd>Right-mouse drag (horizontal), or <kbd>Alt</kbd> + middle-mouse drag</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>History</h3>
+          <dl>
+            <dt>Undo</dt><dd><kbd>Ctrl</kbd> + <kbd>Z</kbd></dd>
+            <dt>Redo</dt><dd><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> or <kbd>Ctrl</kbd> + <kbd>Y</kbd></dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Color & reference</h3>
+          <dl>
+            <dt>Pick color</dt><dd>Dropdown lists 001–025 sorted from pure green to pure red</dd>
+            <dt>Cycle color</dt><dd><kbd>Shift</kbd> + mouse wheel (wrap-around)</dd>
+            <dt>Load reference image</dt><dd>Image-icon button in the toolbar</dd>
+            <dt>Reference opacity</dt><dd>Slider next to the loader</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Export</h3>
+          <dl>
+            <dt>Distance-fill PNG</dt><dd>16-bit RGBA: R/G = palette color of the nearest connected region, B = white for background / black for painted, A = smoothstep distance gradient (midpoint 32768 is the shape edge). A JSON sidecar with the same base filename ships alongside, listing which palette IDs are present, their pixel counts, and the export timestamp.</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Help</h3>
+          <dl>
+            <dt>Open this dialog</dt><dd><kbd>?</kbd> or the help button</dd>
+            <dt>Close</dt><dd><kbd>Esc</kbd> or click outside the box</dd>
+          </dl>
+        </section>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

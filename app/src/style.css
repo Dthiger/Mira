@@ -1,0 +1,463 @@
+/*
+ * Palette borrowed from mira.vision's brand system:
+ *   --mira-blue        201 42% 12%   deep navy (background)
+ *   --cell-blue        201 43% 27%   mid navy (secondary)
+ *   --clean-indigo     201 30% 61%   periwinkle (accent)
+ *   --microscope-white   0  0% 97%   off-white (foreground)
+ *   --soft-gray          0  0% 85%   light gray (borders/inputs)
+ */
+
+/* Montserrat is loaded via <link rel="stylesheet"> in index.html so it
+ * doesn't render-block this stylesheet (which would let the unsized <img>
+ * flash at its natural ~1920px height before CSS applied). */
+
+:root {
+  color-scheme: dark;
+
+  --mira-blue:        201 42% 12%;
+  --cell-blue:        201 43% 27%;
+  --clean-indigo:     201 30% 61%;
+  --microscope-white:   0  0% 97%;
+  --soft-gray:          0  0% 85%;
+
+  /* Workspace (dark) */
+  --bg:           hsl(var(--mira-blue));
+  --fg:           hsl(var(--microscope-white));
+  --accent:       hsl(0 0% 88%);
+  --accent-fg:    hsl(var(--mira-blue));
+  --accent-hover: hsl(0 0% 80%);
+
+  /* Topbar (light) */
+  --topbar-bg:        #ffffff;
+  --topbar-fg:        hsl(var(--mira-blue));
+  --topbar-muted:     hsl(201 20% 40%);
+  --topbar-border:    hsl(0 0% 88%);
+  --topbar-control:   hsl(0 0% 96%);
+  --topbar-control-h: hsl(0 0% 91%);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  border-bottom: 1px solid var(--topbar-border);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+.brand-logo {
+  display: block;
+  height: 70px;
+  width: auto;
+}
+
+.tool-group {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  background: hsl(0 0% 94%);
+  border-radius: 6px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--topbar-control);
+  color: var(--topbar-fg);
+  border: 1px solid var(--topbar-border);
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.icon-btn:hover:not(:disabled) { background: var(--topbar-control-h); border-color: hsl(0 0% 80%); }
+.icon-btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.icon-btn[aria-pressed="true"]:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.icon-btn:disabled { opacity: 0.35; cursor: default; }
+.icon-btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.icon-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.field { display: flex; align-items: center; gap: 6px; color: var(--topbar-muted); }
+.field > span:first-child { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input[type="range"] {
+  width: 120px;
+  accent-color: var(--accent);
+}
+.field select {
+  background: var(--topbar-control);
+  color: var(--topbar-fg);
+  border: 1px solid var(--topbar-border);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font: inherit;
+}
+
+/* Custom color picker */
+.color-picker { position: relative; }
+.color-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--topbar-control);
+  color: var(--topbar-fg);
+  border: 1px solid var(--topbar-border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+  min-width: 180px;
+  height: 34px;
+  text-align: left;
+}
+.color-picker-trigger:hover { background: var(--topbar-control-h); }
+.color-trigger-label {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.color-trigger-arrow {
+  color: var(--topbar-muted);
+  font-size: 10px;
+  margin-left: auto;
+}
+.color-picker-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--topbar-bg);
+  border: 1px solid var(--topbar-border);
+  border-radius: 4px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  padding: 4px 0;
+}
+.color-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  color: var(--topbar-fg);
+  border: 0;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.color-picker-option:hover { background: hsl(0 0% 95%); }
+.color-picker-option[aria-selected="true"] { background: hsl(0 0% 91%); }
+.color-picker-option .swatch {
+  width: 18px;
+  height: 18px;
+}
+.color-picker-option-number {
+  color: var(--topbar-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+.color-picker-option-name { flex: 1; }
+
+.icon-field {
+  position: relative;
+  width: 34px;
+  height: 34px;
+}
+.icon-field .icon-host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--topbar-control);
+  border: 1px solid var(--topbar-border);
+  border-radius: 5px;
+  color: var(--topbar-fg);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.icon-field:hover .icon-host { background: var(--topbar-control-h); }
+.icon-field input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.readout {
+  color: var(--topbar-fg);
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.zoom-readout { color: var(--topbar-muted); min-width: 48px; text-align: right; }
+
+.swatch {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid var(--topbar-border);
+  background: #000;
+}
+/* Diagonal slash overlay when erase mode is active. */
+.swatch.erase::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1.2px),
+    #e44 calc(50% - 0.6px),
+    #e44 calc(50% + 0.6px),
+    transparent calc(50% + 1.2px)
+  );
+  border-radius: inherit;
+}
+
+.spacer { flex: 1; }
+
+.statusbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  background: var(--topbar-bg);
+  border-top: 1px solid var(--topbar-border);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: var(--topbar-fg);
+  min-height: 26px;
+}
+.statusbar-label {
+  color: var(--topbar-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 600;
+}
+.statusbar-value {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+}
+/* Fixed slots so digit-count changes don't shove the row contents around.
+ * Sized for the worst case ("1024, 1024" ~80px in the body monospace). */
+#status-pos { min-width: 80px; }
+.statusbar-value.statusbar-id { min-width: 160px; }
+.statusbar-sep { color: var(--topbar-muted); }
+.status-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid var(--topbar-border);
+  background: transparent;
+  vertical-align: middle;
+}
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background:
+    repeating-conic-gradient(
+      hsl(0 0% 82%) 0% 25%,
+      hsl(0 0% 88%) 0% 50%
+    ) 50% / 24px 24px;
+  cursor: default;
+  touch-action: none;
+}
+.stage.panning { cursor: grabbing; }
+.stage.sizing  { cursor: ew-resize; }
+
+.canvas-stack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  box-shadow:
+    0 0 0 1px hsl(0 0% 25%),
+    0 8px 32px rgba(0, 0, 0, 0.6);
+  background: #000;
+  image-rendering: pixelated;
+  will-change: transform;
+}
+
+.canvas-stack > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+#ref-img {
+  display: none;
+  pointer-events: none;
+  /* The reference is a real photo, not pixel art - let it interpolate. */
+  image-rendering: auto;
+}
+#paint-canvas { pointer-events: none; }
+
+/* OS cursor is hidden over the canvas; the +/- glyph below stands in.
+ * That way the indicator never vanishes mid-stroke (some browsers/drivers
+ * hide the OS cursor during fast drags). */
+#overlay-canvas { cursor: none; }
+.stage.panning #overlay-canvas,
+.stage.sizing #overlay-canvas { cursor: inherit; }
+
+/* Software-drawn +/- cursor glyph, positioned in screen-space by JS so
+ * pan/zoom doesn't distort it. Stays at 100% when idle, fades to 50%
+ * during a paint stroke. */
+#cursor-glyph {
+  position: absolute;
+  pointer-events: none;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: white;
+  text-shadow:
+    -1px -1px 0 black,  1px -1px 0 black,
+    -1px  1px 0 black,  1px  1px 0 black,
+     0   -1px 0 black,  0    1px 0 black,
+    -1px  0   0 black,  1px  0   0 black;
+  transform: translate(-50%, -50%);
+  display: none;
+  user-select: none;
+  z-index: 2;
+  transition: opacity 80ms ease;
+}
+#cursor-glyph.active { display: block; }
+.stage.painting #cursor-glyph { opacity: 0.5; }
+
+/* Help dialog */
+.help-dialog {
+  border: 1px solid var(--topbar-border);
+  border-radius: 8px;
+  padding: 0;
+  max-width: 600px;
+  width: 92vw;
+  max-height: 84vh;
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+}
+.help-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--topbar-border);
+}
+.help-header h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.help-header .icon-btn {
+  width: 28px; height: 28px;
+  font-size: 18px; line-height: 1;
+  background: transparent; border-color: transparent;
+}
+.help-header .icon-btn:hover { background: var(--topbar-control-h); }
+.help-content {
+  padding: 18px 22px 22px;
+  overflow-y: auto;
+  max-height: calc(84vh - 56px);
+}
+.help-content section + section { margin-top: 18px; }
+.help-content h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--topbar-muted);
+}
+.help-content dl {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  gap: 6px 18px;
+  margin: 0;
+}
+.help-content dt { font-weight: 500; }
+.help-content dd { margin: 0; color: hsl(201 25% 30%); }
+.help-content kbd {
+  display: inline-block;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  background: hsl(0 0% 95%);
+  border: 1px solid hsl(0 0% 82%);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  color: var(--topbar-fg);
+  white-space: nowrap;
+}
+
+/* Brush size preview rendered as vector so strokes stay 1 screen-pixel
+ * crisp at any zoom level (the canvases use image-rendering: pixelated,
+ * which makes ring strokes look blocky when scaled up). */
+#brush-cursor {
+  pointer-events: none;
+  image-rendering: auto;
+  display: none;
+}
+#brush-cursor.active { display: block; }
+
+/* Lasso preview lives in screen space (outside canvas-stack) so the
+ * outline + handles can extend past the doc boundary. Position uses the
+ * viewport transform applied per-vertex in JS. */
+#lasso-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: auto;
+  z-index: 1;
+}
+#lasso-preview path { stroke-dasharray: 6 4; }
+#lasso-preview #lasso-path-halo { stroke-dasharray: 6 4; }
+#lasso-preview rect { fill: #ffffff; stroke: rgba(0,0,0,0.65); stroke-width: 1; }

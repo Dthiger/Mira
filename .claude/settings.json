@@ -11,7 +11,23 @@
       "PowerShell($gh = Join-Path $env:ProgramFiles 'GitHub CLI\\\\gh.exe'; if \\(Test-Path $gh\\) { & $gh --version } else { \"not found at $gh\" })",
       "PowerShell(& \"$env:ProgramFiles\\\\GitHub CLI\\\\gh.exe\" auth status 2>&1 | Out-String)",
       "Bash(git remote *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(npm --version)",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Read(//c/Users/dthig/AppData/Local/Temp/claude/d--Projects-Mira/f7866da6-d617-4471-80cc-a5947946ca1b/tasks/**)",
+      "Bash(: noop *)",
+      "WebFetch(domain:www.mira.vision)",
+      "Bash(curl -s https://www.mira.vision/ -o /tmp/mira-index.html)",
+      "Read(//tmp/**)",
+      "Bash(curl -s https://www.mira.vision/assets/index-BDwJGRCz.css -o /tmp/mira-style.css)",
+      "Bash(grep -oE '#[0-9a-fA-F]{3,8}\\\\b|hsl\\\\\\([^\\)]+\\\\\\)|hsla\\\\\\([^\\)]+\\\\\\)|rgb\\\\\\([^\\)]+\\\\\\)|rgba\\\\\\([^\\)]+\\\\\\)' /tmp/mira-style.css)",
+      "Bash(curl -s -o mira-logo.png \"https://www.mira.vision/assets/mira-logo-cEA1oCI2.png\")",
+      "Bash(curl -s -o mira-logo-white-square.png \"https://storage.googleapis.com/gpt-engineer-file-uploads/EAR0sSvh5dU88hUtLDrUTpVsraw2/uploads/1761601552400-logo-white-quadratic.png\")",
+      "Bash(awk '/8:50:02 AM/{flag=1} flag' /c/Users/dthig/AppData/Local/Temp/claude/d--Projects-Mira/f7866da6-d617-4471-80cc-a5947946ca1b/tasks/bv15ykcld.output)",
+      "Bash(awk '/9:[0-9]+:[0-9]+/{ if \\(/error|Error|warning/\\) print; else last=$0 } END { print last }' /c/Users/dthig/AppData/Local/Temp/claude/d--Projects-Mira/f7866da6-d617-4471-80cc-a5947946ca1b/tasks/bv15ykcld.output)"
     ]
   }
 }
