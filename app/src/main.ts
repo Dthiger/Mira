@@ -9,6 +9,7 @@ import { History } from './history.ts';
 import { icon, type IconName } from './icons.ts';
 import { computeDistanceFill, encodeDistanceFillPng } from './distfill.ts';
 import { computeMaskMetadata } from './metadata.ts';
+import { encodeSaveFile, loadSaveFile } from './savefile.ts';
 
 const DOC_SIZE = 1024;
 const MIN_SCALE = 0.05;
@@ -40,6 +41,9 @@ const refInput = $<HTMLInputElement>('#ref-input');
 const refOpacity = $<HTMLInputElement>('#ref-opacity');
 const refOpacityReadout = $<HTMLSpanElement>('#ref-opacity-readout');
 const exportDistBtn = $<HTMLButtonElement>('#export-dist-btn');
+const saveBtn = $<HTMLButtonElement>('#save-btn');
+const loadBtn = $<HTMLButtonElement>('#load-btn');
+const loadInput = $<HTMLInputElement>('#load-input');
 const fitBtn = $<HTMLButtonElement>('#fit-btn');
 const undoBtn = $<HTMLButtonElement>('#undo-btn');
 const redoBtn = $<HTMLButtonElement>('#redo-btn');
@@ -373,6 +377,44 @@ function downloadMetadataSidecar(pngFilename: string, jsonFilename: string): voi
   const json = JSON.stringify(meta, null, 2);
   downloadBlob(new Blob([json], { type: 'application/json' }), jsonFilename);
 }
+
+saveBtn.addEventListener('click', async () => {
+  saveBtn.disabled = true;
+  try {
+    const blob = await encodeSaveFile(doc);
+    downloadBlob(blob, `mira-state-${DOC_SIZE}x${DOC_SIZE}.png`);
+  } catch (err) {
+    console.error('Save failed:', err);
+    window.alert(`Save failed: ${(err as Error).message}`);
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+loadBtn.addEventListener('click', () => loadInput.click());
+loadInput.addEventListener('change', async () => {
+  const file = loadInput.files?.[0];
+  // Reset the input so picking the same file twice re-fires `change`.
+  loadInput.value = '';
+  if (!file) return;
+  try {
+    // Snapshot first so Ctrl+Z undoes the load.
+    history.commit();
+    const result = await loadSaveFile(file, doc);
+    renderer.renderAll();
+    updateStatusbar();
+    refreshUsedIdsStatus();
+    if (result.unknownPixelCount > 0) {
+      console.warn(
+        `Load: ${result.unknownPixelCount} pixel(s) had unknown colors and ` +
+        `were set to background. Palette mismatch?`,
+      );
+    }
+  } catch (err) {
+    console.error('Load failed:', err);
+    window.alert(`Load failed: ${(err as Error).message}`);
+  }
+});
 
 exportDistBtn.addEventListener('click', async () => {
   exportDistBtn.disabled = true;

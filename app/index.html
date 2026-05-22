@@ -15,6 +15,12 @@
         <img src="/mira-logo.png" alt="Mira vision" class="brand-logo" width="79" height="56" />
       </div>
 
+      <div class="tool-group">
+        <button id="save-btn" class="icon-btn primary" data-icon="save" title="Save Mira state PNG (resumable)"></button>
+        <button id="load-btn" class="icon-btn" data-icon="open" title="Load Mira state PNG (resumes editing)"></button>
+      </div>
+      <input id="load-input" type="file" accept="image/png" hidden />
+
       <div class="spacer"></div>
 
       <div class="tool-group" role="radiogroup" aria-label="Tool">
@@ -48,7 +54,9 @@
       <div class="spacer"></div>
 
       <button id="help-btn" class="icon-btn" data-icon="help" title="Help / shortcuts (?)"></button>
-      <button id="export-dist-btn" class="icon-btn primary" data-icon="save" title="Export distance-fill PNG (16-bit RGBA + JSON sidecar)"></button>
+      <button id="export-dist-btn" class="text-btn primary" title="Export distance-fill PNG (16-bit RGBA + JSON sidecar)">
+        <span>Export</span>
+      </button>
     </header>
 
     <div id="size-popover" class="size-popover" role="group" aria-label="Brush size" hidden>
@@ -132,10 +140,11 @@
         <section>
           <h3>Viewport</h3>
           <dl>
-            <dt>Pan</dt><dd>Middle mouse drag (unbounded — push the corner past the viewport if you like)</dd>
+            <dt>Pan</dt><dd>Middle-mouse drag (unbounded — push the corner past the viewport if you like)</dd>
             <dt>Zoom</dt><dd>Mouse wheel — anchored at the cursor</dd>
-            <dt>Fit to view</dt><dd><kbd>F</kbd> or the fit button</dd>
-            <dt>Change brush size</dt><dd>Right-mouse drag (horizontal), or <kbd>Alt</kbd> + middle-mouse drag</dd>
+            <dt>Cycle preset zoom</dt><dd>Click the zoom percentage in the bottom-right (cycles 50% → 100% → 200%, snapping to the closest preset before advancing)</dd>
+            <dt>Fit to view</dt><dd><kbd>F</kbd> or the fit button (bottom-right)</dd>
+            <dt>Change brush size</dt><dd>Right-mouse drag (horizontal), or <kbd>Alt</kbd> + middle-mouse drag. Brush-size popover only appears under brush/eraser tool buttons.</dd>
           </dl>
         </section>
 
@@ -148,19 +157,37 @@
         </section>
 
         <section>
-          <h3>Color & reference</h3>
+          <h3>Color</h3>
           <dl>
             <dt>Pick color</dt><dd>Dropdown lists 001–025 sorted from pure green to pure red</dd>
             <dt>Cycle color</dt><dd><kbd>Shift</kbd> + mouse wheel (wrap-around)</dd>
-            <dt>Load reference image</dt><dd>Image-icon button in the toolbar</dd>
-            <dt>Reference opacity</dt><dd>Slider next to the loader</dd>
+            <dt>Used-color highlight</dt><dd>Indices already painted somewhere in the document are tinted teal in the dropdown list, so you can see at a glance which colors are in use.</dd>
           </dl>
         </section>
 
         <section>
-          <h3>Export</h3>
+          <h3>Reference image</h3>
           <dl>
-            <dt>Distance-fill PNG</dt><dd>16-bit RGBA: R/G = palette color of the nearest connected region, B = white for background / black for painted, A = smoothstep distance gradient (midpoint 32768 is the shape edge). A JSON sidecar with the same base filename ships alongside, listing which palette IDs are present, their pixel counts, and the export timestamp.</dd>
+            <dt>Load</dt><dd>Image-icon button in the bottom status bar (labelled "Ref")</dd>
+            <dt>Opacity</dt><dd>Slider next to the load button. The reference is composited on top of the painted mask, so opacity controls how strongly it shows through your work.</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Status bar (bottom)</h3>
+          <dl>
+            <dt>POS</dt><dd>Integer document-pixel coordinates under the cursor.</dd>
+            <dt>ID</dt><dd>Swatch + label + name of the palette index at the cursor pixel (or "background"). Live as you hover.</dd>
+            <dt>USED N</dt><dd>Number of distinct palette indices currently present in the document. <strong>Hover</strong> the cluster to see the full list with swatches, names, and pixel counts.</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h3>Save / Load / Export</h3>
+          <dl>
+            <dt>Save state</dt><dd>Teal floppy button next to the Mira logo (top-left). Writes the current mask as a plain PNG (palette colors + black background). Open it in any image viewer to preview; reopen it in Mira to resume editing.</dd>
+            <dt>Load state</dt><dd>Folder-open button next to the save button. Pick a previously-saved Mira state PNG. Snapshots history first so <kbd>Ctrl</kbd>+<kbd>Z</kbd> still undoes the load.</dd>
+            <dt>EXPORT</dt><dd>Text button at the top-right. Produces the 16-bit RGBA distance-fill PNG plus a JSON sidecar. The PNG encodes: R/G = palette color of the nearest connected region, B = white for background / black for painted (inverted for shader subtraction), A = smoothstep distance gradient with the shape edge pinned at midpoint 32768. Sidecar JSON lists every palette ID present, its label, name, RGB, and pixel count.</dd>
           </dl>
         </section>
 

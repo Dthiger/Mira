@@ -120,8 +120,35 @@ body { display: flex; flex-direction: column; }
   border-color: var(--teal-hover);
 }
 .icon-btn:disabled { opacity: 0.35; cursor: default; }
-.icon-btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.icon-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .icon-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Text + optional icon button. Used for the Export action so it reads
+ * as a deliberate "deliverable" command rather than just an icon. */
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--topbar-control);
+  color: var(--topbar-fg);
+  border: 1px solid var(--topbar-border);
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.text-btn:hover:not(:disabled) { background: var(--topbar-control-h); border-color: hsl(0 0% 80%); }
+.text-btn:disabled { opacity: 0.4; cursor: default; }
+.text-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.text-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.text-btn .icon-host { display: inline-flex; align-items: center; justify-content: center; }
+.text-btn svg { width: 16px; height: 16px; }
 
 .field { display: flex; align-items: center; gap: 6px; color: var(--topbar-muted); }
 .field > span:first-child { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -143,6 +170,9 @@ body { display: flex; flex-direction: column; }
   font-family: inherit;
   font-size: 12px;
 }
+/* `display: flex` above overrides the user-agent's [hidden] rule, so
+ * sizePopover.hidden = true didn't actually hide it - re-assert here. */
+.size-popover[hidden] { display: none; }
 .size-popover input[type="range"] {
   width: 120px;
   accent-color: var(--accent);
