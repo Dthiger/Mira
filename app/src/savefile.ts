@@ -12,7 +12,8 @@
  *     and are counted in the returned `unknownPixelCount` for reporting.
  */
 
-import { BACKGROUND_INDEX, PALETTE } from './palette.ts';
+import { BACKGROUND_INDEX } from './palette.ts';
+import { RGB_BY_INDEX, INDEX_BY_RGB } from './paletteRgb.ts';
 import type { MaskDocument } from './document.ts';
 
 export async function encodeSaveFile(doc: MaskDocument): Promise<Blob> {
@@ -23,14 +24,10 @@ export async function encodeSaveFile(doc: MaskDocument): Promise<Blob> {
   if (!ctx) throw new Error('Could not acquire 2d context for save encode');
   ctx.imageSmoothingEnabled = false;
 
-  const rgbByIndex = new Map<number, [number, number, number]>();
-  rgbByIndex.set(BACKGROUND_INDEX, [0, 0, 0]);
-  for (const e of PALETTE) rgbByIndex.set(e.index, [e.r, e.g, e.b]);
-
   const img = ctx.createImageData(doc.width, doc.height);
   const buf = img.data;
   for (let i = 0; i < doc.pixels.length; i++) {
-    const rgb = rgbByIndex.get(doc.pixels[i]) ?? [0, 0, 0];
+    const rgb = RGB_BY_INDEX.get(doc.pixels[i]) ?? [0, 0, 0];
     const o = i * 4;
     buf[o] = rgb[0];
     buf[o + 1] = rgb[1];
@@ -70,19 +67,12 @@ export async function loadSaveFile(blob: Blob, doc: MaskDocument): Promise<LoadR
     const img = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
     const data = img.data;
 
-    // Pack (r, g, b) into a single 24-bit key for an O(1) reverse lookup.
-    const indexByRgb = new Map<number, number>();
-    indexByRgb.set(0, BACKGROUND_INDEX); // pure black -> background
-    for (const e of PALETTE) {
-      indexByRgb.set((e.r << 16) | (e.g << 8) | e.b, e.index);
-    }
-
     const px = doc.pixels;
     let unknown = 0;
     for (let i = 0; i < px.length; i++) {
       const o = i * 4;
       const key = (data[o] << 16) | (data[o + 1] << 8) | data[o + 2];
-      const idx = indexByRgb.get(key);
+      const idx = INDEX_BY_RGB.get(key);
       if (idx === undefined) {
         unknown++;
         px[i] = BACKGROUND_INDEX;

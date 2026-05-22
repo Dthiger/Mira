@@ -1,25 +1,5 @@
-import { BACKGROUND_INDEX, PALETTE } from './palette.ts';
 import type { MaskDocument } from './document.ts';
-
-const RGBA_TABLE = (() => {
-  const table = new Uint8Array(256 * 4);
-  for (const entry of PALETTE) {
-    const off = entry.index * 4;
-    table[off + 0] = entry.r;
-    table[off + 1] = entry.g;
-    table[off + 2] = entry.b;
-    table[off + 3] = 255;
-  }
-  // Background renders as fully TRANSPARENT in the paint canvas so the
-  // reference image (and the canvas-stack's black backdrop) shows through.
-  // Export pipelines composite onto opaque black for the final PNG.
-  const bgOff = BACKGROUND_INDEX * 4;
-  table[bgOff + 0] = 0;
-  table[bgOff + 1] = 0;
-  table[bgOff + 2] = 0;
-  table[bgOff + 3] = 0;
-  return table;
-})();
+import { PAINT_RGBA as RGBA_TABLE } from './paletteRgb.ts';
 
 export class PaintRenderer {
   private readonly doc: MaskDocument;

@@ -1,196 +1,27 @@
-import { encode as encodePng } from 'fast-png';
-import { BACKGROUND_INDEX, PALETTE_BY_INDEX } from './palette.ts';
-import type { MaskDocument } from './document.ts';
-
-/*
- * Distance-fill export.
+/**
+ * Distance-fill export composition.
  *
  * For each pixel, find the nearest connected painted region and encode:
- *   R, G  - palette color of that region (8-bit value promoted to 16-bit via *257
+ *   R, G  - palette color of that region (8-bit promoted to 16-bit via *257
  *           so the high byte still reads as the canonical palette value)
  *   B     - 65535 if pixel was originally BACKGROUND, 0 if it was painted.
  *           Inverted from the on-screen mask so downstream shaders can
  *           subtract directly (background reads as 1.0 in normalized float).
  *   A     - smooth-step gradient:
- *             outside (B=0):  [0, 32767]   - 0 at the Voronoi boundary,
- *                                            ~32767 right at the shape edge
- *             inside  (B=65535): [32768, 65535] - 32768 at the shape edge,
+ *             outside (B=65535): [0, 32767]   - 0 at the Voronoi boundary,
+ *                                                ~32767 right at the shape edge
+ *             inside  (B=0):     [32768, 65535] - 32768 at the shape edge,
  *                                                 65535 at the medial axis
  *
- * The midpoint 32768 corresponds exactly to the shape boundary, so a downstream
- * shader can recover the original mask with either `B > 0.5` or `A > 0.5`.
+ * The midpoint 32768 corresponds exactly to the shape boundary, so a
+ * downstream shader can recover the original mask with `B > 0.5` or `A > 0.5`.
  */
 
-const NO_REGION = -1;
-
-interface CclResult {
-  regions: Int32Array;
-  regionPaletteIndex: Uint8Array;
-  regionCount: number;
-}
-
-/** 4-connected union-find CCL. Each connected blob of identical palette value
- *  becomes one region. */
-function connectedComponents(doc: MaskDocument): CclResult {
-  const w = doc.width;
-  const h = doc.height;
-  const px = doc.pixels;
-  const regions = new Int32Array(w * h).fill(NO_REGION);
-
-  const parent: number[] = [];
-  const paletteIdx: number[] = [];
-
-  function find(x: number): number {
-    while (parent[x] !== x) {
-      parent[x] = parent[parent[x]];
-      x = parent[x];
-    }
-    return x;
-  }
-  function union(a: number, b: number): number {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra === rb) return ra;
-    parent[rb] = ra;
-    return ra;
-  }
-
-  let nextLabel = 0;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      const v = px[i];
-      if (v === BACKGROUND_INDEX) continue;
-
-      const left = x > 0 ? regions[i - 1] : NO_REGION;
-      const up = y > 0 ? regions[i - w] : NO_REGION;
-      const leftMatches = left !== NO_REGION && paletteIdx[left] === v;
-      const upMatches = up !== NO_REGION && paletteIdx[up] === v;
-
-      if (leftMatches && upMatches) {
-        regions[i] = union(left, up);
-      } else if (leftMatches) {
-        regions[i] = left;
-      } else if (upMatches) {
-        regions[i] = up;
-      } else {
-        parent.push(nextLabel);
-        paletteIdx.push(v);
-        regions[i] = nextLabel++;
-      }
-    }
-  }
-
-  // Compact labels and remap.
-  const rootToFinal = new Map<number, number>();
-  let finalCount = 0;
-  const n = regions.length;
-  for (let i = 0; i < n; i++) {
-    const r = regions[i];
-    if (r === NO_REGION) continue;
-    const root = find(r);
-    let f = rootToFinal.get(root);
-    if (f === undefined) {
-      f = finalCount++;
-      rootToFinal.set(root, f);
-    }
-    regions[i] = f;
-  }
-
-  const finalPaletteIdx = new Uint8Array(finalCount);
-  rootToFinal.forEach((final, root) => {
-    finalPaletteIdx[final] = paletteIdx[root];
-  });
-
-  return { regions, regionPaletteIndex: finalPaletteIdx, regionCount: finalCount };
-}
-
-interface JfaState {
-  /** Index of nearest seed for each pixel (or -1). */
-  nearest: Int32Array;
-  /** Squared Euclidean distance from each pixel to its nearest seed. */
-  distSq: Float64Array;
-}
-
-/**
- * Jump Flood Algorithm. Produces an approximate Euclidean nearest-seed map.
- *
- * If `filter` is provided, a seed is only valid for a destination when
- * filter(seedIndex, destIndex) returns true. The destination's currently
- * cached nearest is re-validated each iteration so an initially seeded
- * pixel can discard its own self-seed when the filter rejects it.
- */
-function jumpFlood(
-  w: number,
-  h: number,
-  seedMask: Uint8Array,
-  filter: ((seedI: number, destI: number) => boolean) | null,
-): JfaState {
-  const n = w * h;
-  const nearest = new Int32Array(n).fill(-1);
-  const distSq = new Float64Array(n);
-  distSq.fill(Infinity);
-  for (let i = 0; i < n; i++) {
-    if (seedMask[i]) {
-      nearest[i] = i;
-      distSq[i] = 0;
-    }
-  }
-
-  let step = 1;
-  while (step < Math.max(w, h)) step <<= 1;
-  step >>= 1;
-
-  while (step >= 1) {
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x;
-        let bestSeed = nearest[i];
-        let bestD = distSq[i];
-
-        if (filter && bestSeed >= 0 && !filter(bestSeed, i)) {
-          bestSeed = -1;
-          bestD = Infinity;
-        }
-
-        for (let dy = -1; dy <= 1; dy++) {
-          const ny = y + dy * step;
-          if (ny < 0 || ny >= h) continue;
-          const rowOff = ny * w;
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = x + dx * step;
-            if (nx < 0 || nx >= w) continue;
-            const candidate = nearest[rowOff + nx];
-            if (candidate < 0) continue;
-            if (filter && !filter(candidate, i)) continue;
-            const sx = candidate % w;
-            const sy = (candidate / w) | 0;
-            const ddx = x - sx;
-            const ddy = y - sy;
-            const d = ddx * ddx + ddy * ddy;
-            if (d < bestD) {
-              bestD = d;
-              bestSeed = candidate;
-            }
-          }
-        }
-
-        nearest[i] = bestSeed;
-        distSq[i] = bestD;
-      }
-    }
-    step >>= 1;
-  }
-
-  return { nearest, distSq };
-}
-
-function smoothstep(t: number): number {
-  if (t <= 0) return 0;
-  if (t >= 1) return 1;
-  return t * t * (3 - 2 * t);
-}
+import { encode as encodePng } from 'fast-png';
+import { BACKGROUND_INDEX, PALETTE_BY_INDEX } from './palette.ts';
+import { connectedComponents, NO_REGION } from './ccl.ts';
+import { jumpFlood } from './jfa.ts';
+import type { MaskDocument } from './document.ts';
 
 export interface DistanceFillResult {
   /** 16-bit RGBA, row-major, length = width * height * 4. */
@@ -198,6 +29,12 @@ export interface DistanceFillResult {
   width: number;
   height: number;
   regionCount: number;
+}
+
+function smoothstep(t: number): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  return t * t * (3 - 2 * t);
 }
 
 export function computeDistanceFill(doc: MaskDocument): DistanceFillResult {
@@ -252,8 +89,7 @@ export function computeDistanceFill(doc: MaskDocument): DistanceFillResult {
     const isPainted = paintedMask[i] === 1;
     const r = cellRegion[i];
     const palIdx = r >= 0 ? regionPaletteIndex[r] : -1;
-    // Look up by internal index (PALETTE array is sorted by label, so
-    // PALETTE[palIdx] would return the wrong entry).
+    // Look up by internal index (PALETTE array is sorted by label).
     const palEntry = palIdx >= 0 ? PALETTE_BY_INDEX.get(palIdx) : undefined;
 
     const o = i * 4;
