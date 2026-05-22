@@ -1,11 +1,8 @@
 import type { MaskDocument } from '../document.ts';
 import type { PaintRenderer } from '../renderer.ts';
-import { BACKGROUND_INDEX, type EraseMode } from '../palette.ts';
 
 export interface BucketState {
   colorIndex: number;
-  /** Three-state erase mode (off / all / selected). */
-  eraseMode: EraseMode;
 }
 
 /**
@@ -34,11 +31,7 @@ export class BucketTool {
     if (xi < 0 || yi < 0 || xi >= w || yi >= h) return false;
 
     const target = px[yi * w + xi];
-    const mode = this.state.eraseMode;
-    // In selected-erase mode, the bucket only acts when the clicked pixel
-    // already matches the active color - otherwise it's a no-op.
-    if (mode === 'selected' && target !== this.state.colorIndex) return false;
-    const newColor = mode === 'off' ? this.state.colorIndex : BACKGROUND_INDEX;
+    const newColor = this.state.colorIndex;
     if (target === newColor) return false;
 
     // Scanline flood fill (Smith). Stack holds seeds for new spans to explore.

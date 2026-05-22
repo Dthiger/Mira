@@ -1,5 +1,5 @@
 import './style.css';
-import { PALETTE, PALETTE_BY_INDEX, BACKGROUND_INDEX, paletteHex, type EraseMode } from './palette.ts';
+import { PALETTE, PALETTE_BY_INDEX, BACKGROUND_INDEX, paletteHex } from './palette.ts';
 import { MaskDocument } from './document.ts';
 import { PaintRenderer } from './renderer.ts';
 import { BrushTool, type BrushState } from './tools/brush.ts';
@@ -15,7 +15,7 @@ const MIN_SCALE = 0.05;
 const MAX_SCALE = 64;
 const WHEEL_FACTOR = 1.1;
 
-type ToolName = 'brush' | 'lasso' | 'bucket';
+type ToolName = 'brush' | 'lasso' | 'bucket' | 'erase-all' | 'erase-selected';
 
 const $ = <T extends Element>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -35,6 +35,7 @@ const colorTriggerLabel = $<HTMLSpanElement>('#color-trigger-label');
 const colorSwatch = $<HTMLSpanElement>('#color-swatch');
 const sizeSlider = $<HTMLInputElement>('#size-slider');
 const sizeReadout = $<HTMLSpanElement>('#size-readout');
+const sizePopover = $<HTMLDivElement>('#size-popover');
 const refInput = $<HTMLInputElement>('#ref-input');
 const refOpacity = $<HTMLInputElement>('#ref-opacity');
 const refOpacityReadout = $<HTMLSpanElement>('#ref-opacity-readout');
@@ -42,8 +43,6 @@ const exportDistBtn = $<HTMLButtonElement>('#export-dist-btn');
 const fitBtn = $<HTMLButtonElement>('#fit-btn');
 const undoBtn = $<HTMLButtonElement>('#undo-btn');
 const redoBtn = $<HTMLButtonElement>('#redo-btn');
-const eraseAllToggle = $<HTMLButtonElement>('#erase-all-toggle');
-const eraseSelectedToggle = $<HTMLButtonElement>('#erase-selected-toggle');
 const helpBtn = $<HTMLButtonElement>('#help-btn');
 const helpDialog = $<HTMLDialogElement>('#help-dialog');
 const helpClose = $<HTMLButtonElement>('#help-close');
@@ -60,6 +59,8 @@ const lassoCloseIndicator = $<SVGCircleElement>('#lasso-close');
 const statusPos = $<HTMLSpanElement>('#status-pos');
 const statusId = $<HTMLSpanElement>('#status-id');
 const statusSwatch = $<HTMLSpanElement>('#status-swatch');
+const statusUsedCount = $<HTMLSpanElement>('#status-used-count');
+const statusUsedPopup = $<HTMLDivElement>('#status-used-popup');
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // Inject SVG icons into anything with [data-icon].
@@ -84,9 +85,12 @@ overlayCtx.imageSmoothingEnabled = false;
 const history = new History(doc);
 history.setOnChange(updateHistoryButtons);
 
+// The brush instance is shared by the brush, erase-all, and erase-selected
+// tools - they all stamp circles. The state's eraseMode is set by
+// syncBrushEraseModeToTool() based on which of those is active.
 const brushState: BrushState = { colorIndex: 0, size: 16, eraseMode: 'off' };
-const lassoState: LassoState = { colorIndex: 0, eraseMode: 'off' };
-const bucketState: BucketState = { colorIndex: 0, eraseMode: 'off' };
+const lassoState: LassoState = { colorIndex: 0 };
+const bucketState: BucketState = { colorIndex: 0 };
 const brush = new BrushTool(doc, renderer, brushState);
 const lasso = new LassoTool(doc, renderer, lassoState, () => redrawOverlay());
 const bucket = new BucketTool(doc, renderer, bucketState);
@@ -152,8 +156,29 @@ for (const entry of PALETTE) {
 
 colorTrigger.addEventListener('click', (evt) => {
   evt.stopPropagation();
-  if (colorMenu.hidden) openColorMenu(); else closeColorMenu();
+  if (colorMenu.hidden) {
+    refreshUsedIndicesInMenu();
+    openColorMenu();
+  } else {
+    closeColorMenu();
+  }
 });
+
+/**
+ * One pass over the pixel buffer to find which palette indices the document
+ * currently contains, then mark those options in the dropdown with `.used`
+ * for the 50% teal highlight. ~5 ms at 1024² - cheap enough to do on every
+ * dropdown open.
+ */
+function refreshUsedIndicesInMenu(): void {
+  const seen = new Uint8Array(256);
+  const px = doc.pixels;
+  for (let i = 0; i < px.length; i++) seen[px[i]] = 1;
+  colorMenu.querySelectorAll<HTMLElement>('.color-picker-option').forEach((opt) => {
+    const idx = Number(opt.dataset.index);
+    opt.classList.toggle('used', seen[idx] === 1);
+  });
+}
 
 document.addEventListener('click', (evt) => {
   if (!colorMenu.hidden && !colorPicker.contains(evt.target as Node)) {
@@ -210,14 +235,72 @@ function setTool(tool: ToolName): void {
   document.querySelectorAll<HTMLButtonElement>('.tool-btn').forEach((b) => {
     b.setAttribute('aria-pressed', b.dataset.tool === tool ? 'true' : 'false');
   });
+  syncBrushEraseModeToTool();
+  updateSizePopover();
   redrawOverlay();
 }
+
+// Brush size popover floats under the active brush/eraser button. Hidden
+// for lasso/bucket where size is meaningless. Positioned in viewport coords
+// from the active button's bounding rect so wraps/resizes track correctly.
+const SIZE_TOOLS: readonly ToolName[] = ['brush', 'erase-all', 'erase-selected'];
+
+function updateSizePopover(): void {
+  if (!SIZE_TOOLS.includes(activeTool)) {
+    sizePopover.hidden = true;
+    return;
+  }
+  const activeBtn = document.querySelector<HTMLButtonElement>(
+    `.tool-btn[data-tool="${activeTool}"]`,
+  );
+  if (!activeBtn) {
+    sizePopover.hidden = true;
+    return;
+  }
+  // Make it visible before measuring so our own getBoundingClientRect on
+  // sizePopover (used later) doesn't return 0 widths.
+  sizePopover.hidden = false;
+  const r = activeBtn.getBoundingClientRect();
+  sizePopover.style.left = `${r.left}px`;
+  sizePopover.style.top = `${r.bottom + 6}px`;
+}
+
+window.addEventListener('resize', updateSizePopover);
+updateSizePopover();
+refreshUsedIdsStatus();
 
 // ---------- Fit / Undo / Redo buttons ----------
 
 fitBtn.addEventListener('click', fitToView);
-undoBtn.addEventListener('click', () => { if (history.undo()) { renderer.renderAll(); updateStatusbar(); } });
-redoBtn.addEventListener('click', () => { if (history.redo()) { renderer.renderAll(); updateStatusbar(); } });
+
+// Click the zoom readout to cycle through preset zoom levels.
+// Snaps to whichever preset is closest (log-distance, so the steps feel
+// symmetric on the multiplicative scale axis) and then advances to the
+// next one in the cycle.
+const ZOOM_PRESETS = [0.5, 1.0, 2.0];
+zoomReadout.addEventListener('click', () => {
+  let nearestIdx = 0;
+  let nearestDist = Infinity;
+  for (let i = 0; i < ZOOM_PRESETS.length; i++) {
+    const d = Math.abs(Math.log(scale / ZOOM_PRESETS[i]));
+    if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+  }
+  setZoomAtViewportCenter(ZOOM_PRESETS[(nearestIdx + 1) % ZOOM_PRESETS.length]);
+});
+
+function setZoomAtViewportCenter(targetScale: number): void {
+  const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScale));
+  const rect = stageEl.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const applied = next / scale;
+  tx = cx - (cx - tx) * applied;
+  ty = cy - (cy - ty) * applied;
+  scale = next;
+  applyTransform();
+}
+undoBtn.addEventListener('click', () => { if (history.undo()) { renderer.renderAll(); updateStatusbar(); refreshUsedIdsStatus(); } });
+redoBtn.addEventListener('click', () => { if (history.redo()) { renderer.renderAll(); updateStatusbar(); refreshUsedIdsStatus(); } });
 
 helpBtn.addEventListener('click', () => helpDialog.showModal());
 helpClose.addEventListener('click', () => helpDialog.close());
@@ -226,33 +309,24 @@ helpDialog.addEventListener('click', (evt) => {
   if (evt.target === helpDialog) helpDialog.close();
 });
 
-let persistentEraseMode: EraseMode = 'off';
 let ctrlHeld = false;
 
-eraseAllToggle.addEventListener('click', () => {
-  setPersistentEraseMode(persistentEraseMode === 'all' ? 'off' : 'all');
-});
-eraseSelectedToggle.addEventListener('click', () => {
-  setPersistentEraseMode(persistentEraseMode === 'selected' ? 'off' : 'selected');
-});
-
-function setPersistentEraseMode(mode: EraseMode): void {
-  persistentEraseMode = mode;
-  updateEffectiveErase();
-}
-
-function updateEffectiveErase(): void {
-  // Ctrl-held always elevates to destructive 'all' regardless of the persistent
-  // setting. Released -> falls back to whatever the toolbar toggles say.
-  const effective: EraseMode = ctrlHeld ? 'all' : persistentEraseMode;
-  brushState.eraseMode = effective;
-  lassoState.eraseMode = effective;
-  bucketState.eraseMode = effective;
-  // Toggle buttons reflect the persistent setting; swatch slash + cursor +
-  // stage class reflect the effective state.
-  eraseAllToggle.setAttribute('aria-pressed', persistentEraseMode === 'all' ? 'true' : 'false');
-  eraseSelectedToggle.setAttribute('aria-pressed', persistentEraseMode === 'selected' ? 'true' : 'false');
-  const erasing = effective !== 'off';
+/**
+ * The brush instance is shared by the brush, erase-all, and erase-selected
+ * tools. This function maps the active tool (plus Ctrl-held override) to
+ * brushState.eraseMode, then refreshes the visuals that depend on it.
+ */
+function syncBrushEraseModeToTool(): void {
+  if (activeTool === 'erase-all') {
+    brushState.eraseMode = 'all';
+  } else if (activeTool === 'erase-selected') {
+    brushState.eraseMode = ctrlHeld ? 'all' : 'selected';
+  } else if (activeTool === 'brush') {
+    brushState.eraseMode = ctrlHeld ? 'all' : 'off';
+  } else {
+    brushState.eraseMode = 'off';
+  }
+  const erasing = brushState.eraseMode !== 'off';
   colorSwatch.classList.toggle('erase', erasing);
   stageEl.classList.toggle('erasing', erasing);
   updateCursorGlyph();
@@ -364,7 +438,7 @@ stageEl.addEventListener('pointerdown', (evt) => {
   if (evt.button === 0) {
     const { dx, dy } = eventToDoc(evt);
     stageEl.setPointerCapture(evt.pointerId);
-    if (activeTool === 'brush') {
+    if (activeTool === 'brush' || activeTool === 'erase-all' || activeTool === 'erase-selected') {
       history.commit();
       dragMode = 'paint';
       stageEl.classList.add('painting');
@@ -373,6 +447,7 @@ stageEl.addEventListener('pointerdown', (evt) => {
       history.commit();
       bucket.apply(dx, dy);
       updateStatusbar();
+      refreshUsedIdsStatus();
       // No drag follows; capture will release on pointerup.
     } else {
       // Lasso: capture pre-shape snapshot only on the first click of a new shape.
@@ -409,7 +484,7 @@ stageEl.addEventListener('pointerup', (evt) => {
   if (stageEl.hasPointerCapture(evt.pointerId)) {
     stageEl.releasePointerCapture(evt.pointerId);
   }
-  if (dragMode === 'paint') brush.end();
+  if (dragMode === 'paint') { brush.end(); refreshUsedIdsStatus(); }
   else if (dragMode === 'lasso') lasso.pointerUp();
   stageEl.classList.remove('panning', 'sizing', 'painting');
   dragMode = null;
@@ -460,23 +535,23 @@ function cyclePaletteColor(delta: number): void {
 window.addEventListener('keydown', (evt) => {
   const meta = evt.ctrlKey || evt.metaKey;
 
-  // Ctrl held: temporary erase override for all tools. Tracked separately from
-  // the persistent toggle so the toggle button isn't visually flipped while
-  // the user is just hovering Ctrl for a one-off erase.
+  // Ctrl held: temporary erase override on the brush tool (forces it into
+  // erase-all behavior for the duration). No effect on lasso/bucket since
+  // those are paint-only after the erase-as-tool refactor.
   if (evt.key === 'Control' && !ctrlHeld) {
     ctrlHeld = true;
-    updateEffectiveErase();
+    syncBrushEraseModeToTool();
   }
 
   if (meta && evt.key.toLowerCase() === 'z') {
     evt.preventDefault();
-    if (evt.shiftKey) { if (history.redo()) { renderer.renderAll(); updateStatusbar(); } }
-    else { if (history.undo()) { renderer.renderAll(); updateStatusbar(); } }
+    if (evt.shiftKey) { if (history.redo()) { renderer.renderAll(); updateStatusbar(); refreshUsedIdsStatus(); } }
+    else { if (history.undo()) { renderer.renderAll(); updateStatusbar(); refreshUsedIdsStatus(); } }
     return;
   }
   if (meta && evt.key.toLowerCase() === 'y') {
     evt.preventDefault();
-    if (history.redo()) { renderer.renderAll(); updateStatusbar(); }
+    if (history.redo()) { renderer.renderAll(); updateStatusbar(); refreshUsedIdsStatus(); }
     return;
   }
   if (evt.key === 'Escape' && activeTool === 'lasso') lasso.cancel();
@@ -485,11 +560,12 @@ window.addEventListener('keydown', (evt) => {
   else if (!meta && (evt.key === 'l' || evt.key === 'L')) setTool('lasso');
   else if (!meta && (evt.key === 'g' || evt.key === 'G')) setTool('bucket');
   else if (!meta && (evt.key === 'e' || evt.key === 'E')) {
-    // E toggles erase-all; Shift+E toggles erase-selected.
+    // E switches to erase-all tool (or back to brush if already erase-all).
+    // Shift+E switches to erase-selected (or back to brush).
     if (evt.shiftKey) {
-      setPersistentEraseMode(persistentEraseMode === 'selected' ? 'off' : 'selected');
+      setTool(activeTool === 'erase-selected' ? 'brush' : 'erase-selected');
     } else {
-      setPersistentEraseMode(persistentEraseMode === 'all' ? 'off' : 'all');
+      setTool(activeTool === 'erase-all' ? 'brush' : 'erase-all');
     }
   }
   else if (!meta && (evt.key === 'f' || evt.key === 'F')) fitToView();
@@ -502,7 +578,7 @@ window.addEventListener('keydown', (evt) => {
 window.addEventListener('keyup', (evt) => {
   if (evt.key === 'Control' && ctrlHeld) {
     ctrlHeld = false;
-    updateEffectiveErase();
+    syncBrushEraseModeToTool();
   }
 });
 
@@ -511,17 +587,26 @@ window.addEventListener('keyup', (evt) => {
 window.addEventListener('blur', () => {
   if (ctrlHeld) {
     ctrlHeld = false;
-    updateEffectiveErase();
+    syncBrushEraseModeToTool();
   }
 });
 
 // ---------- Overlay redraw ----------
+
+let lassoWasActive = false;
 
 function redrawOverlay(cx?: number, cy?: number): void {
   if (cx !== undefined && cy !== undefined) {
     cursorX = cx;
     cursorY = cy;
   }
+
+  // Lasso transitioning active -> inactive means it just committed (filled
+  // pixels) or was cancelled. Refresh the used-ids tally either way; cancel
+  // is a no-op for pixels but we save a branch by not checking.
+  const lassoActive = lasso.isActive();
+  if (lassoWasActive && !lassoActive) refreshUsedIdsStatus();
+  lassoWasActive = lassoActive;
   // The doc-sized overlay canvas is no longer used (lasso preview moved to
   // a screen-space SVG so it can extend beyond canvas bounds), but keep the
   // clear in case future doc-space overlays land here.
@@ -531,6 +616,45 @@ function redrawOverlay(cx?: number, cy?: number): void {
   updateBrushCursor();
   updateCursorGlyph();
   updateStatusbar();
+}
+
+/**
+ * Walk the pixel buffer once to tally per-index usage, then update the
+ * "Used: N" indicator and rebuild the hover popup. ~5 ms at 1024^2 - called
+ * only from discrete doc-changing events, never from pointermove.
+ */
+function refreshUsedIdsStatus(): void {
+  const counts = new Uint32Array(256);
+  const px = doc.pixels;
+  for (let i = 0; i < px.length; i++) counts[px[i]]++;
+
+  const used: { entry: typeof PALETTE[number]; count: number }[] = [];
+  for (const entry of PALETTE) {
+    const c = counts[entry.index];
+    if (c > 0) used.push({ entry, count: c });
+  }
+
+  statusUsedCount.textContent = String(used.length);
+
+  // Rebuild popup
+  while (statusUsedPopup.firstChild) statusUsedPopup.removeChild(statusUsedPopup.firstChild);
+  if (used.length === 0) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = 'no indices painted yet';
+    statusUsedPopup.appendChild(e);
+    return;
+  }
+  for (const { entry, count } of used) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML =
+      `<span class="swatch" style="background:${paletteHex(entry)}"></span>` +
+      `<span class="label">${entry.label}</span>` +
+      `<span class="name">${entry.name}</span>` +
+      `<span class="count">${count.toLocaleString()} px</span>`;
+    statusUsedPopup.appendChild(row);
+  }
 }
 
 function updateStatusbar(): void {
@@ -612,7 +736,14 @@ function redrawLassoPreview(): void {
 }
 
 function updateBrushCursor(): void {
-  if (activeTool !== 'brush' || cursorX < 0) {
+  // The brush-radius preview belongs to any brush-shaped tool - brush itself
+  // plus the two eraser tools (which all share the brush engine and size).
+  // For lasso/bucket there is no "size" so the preview stays hidden.
+  const usesBrushSize =
+    activeTool === 'brush' ||
+    activeTool === 'erase-all' ||
+    activeTool === 'erase-selected';
+  if (!usesBrushSize || cursorX < 0) {
     brushCursorSvg.classList.remove('active');
     return;
   }
@@ -643,9 +774,10 @@ function updateCursorGlyph(): void {
     return;
   }
   cursorGlyph.classList.add('active');
-  // persistentEraseMode is an EraseMode union now, not a boolean - "off" is
-  // a truthy string, so the old `|| ctrlHeld` always evaluated truthy.
-  const erasing = persistentEraseMode !== 'off' || ctrlHeld;
+  // brushState.eraseMode is the single source of truth: it's set by
+  // syncBrushEraseModeToTool() based on activeTool + ctrlHeld, so reading it
+  // covers the erase-all tool, erase-selected tool, and the Ctrl+brush case.
+  const erasing = brushState.eraseMode !== 'off';
   cursorGlyph.textContent = erasing ? '−' : '+';
   // Doc -> stage-local screen coords, mirroring the canvas-stack transform.
   const sx = cursorX * scale + tx;

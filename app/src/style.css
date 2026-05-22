@@ -26,6 +26,8 @@
   --accent:       hsl(0 0% 88%);
   --accent-fg:    hsl(var(--mira-blue));
   --accent-hover: hsl(0 0% 80%);
+  --teal:         hsl(180 60% 40%);
+  --teal-hover:   hsl(180 60% 46%);
 
   /* Topbar (light) */
   --topbar-bg:        #ffffff;
@@ -55,8 +57,8 @@ body { display: flex; flex-direction: column; }
 .topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
+  gap: 8px;
+  padding: 2px 12px;
   background: var(--topbar-bg);
   color: var(--topbar-fg);
   border-bottom: 1px solid var(--topbar-border);
@@ -71,13 +73,13 @@ body { display: flex; flex-direction: column; }
 }
 .brand-logo {
   display: block;
-  height: 70px;
+  height: 56px;
   width: auto;
 }
 
 .tool-group {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   padding: 2px;
   background: hsl(0 0% 94%);
   border-radius: 6px;
@@ -91,8 +93,8 @@ body { display: flex; flex-direction: column; }
   background: var(--topbar-control);
   color: var(--topbar-fg);
   border: 1px solid var(--topbar-border);
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 5px;
   cursor: pointer;
   font: inherit;
@@ -106,14 +108,59 @@ body { display: flex; flex-direction: column; }
   color: var(--accent-fg);
 }
 .icon-btn[aria-pressed="true"]:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+/* The active tool button (brush/lasso/bucket) gets the brand teal so the
+ * primary tool selector stands out from the secondary erase toggles. */
+.icon-btn.tool-btn[aria-pressed="true"] {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #ffffff;
+}
+.icon-btn.tool-btn[aria-pressed="true"]:hover {
+  background: var(--teal-hover);
+  border-color: var(--teal-hover);
+}
 .icon-btn:disabled { opacity: 0.35; cursor: default; }
 .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
 .icon-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 .field { display: flex; align-items: center; gap: 6px; color: var(--topbar-muted); }
 .field > span:first-child { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
-.field input[type="range"] {
+
+/* Brush-size popover - foldout under the active brush/eraser tool button.
+ * Positioned in viewport coords by JS based on the active button's rect. */
+.size-popover {
+  position: fixed;
+  z-index: 50;
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  padding: 5px 10px;
+  border: 1px solid var(--topbar-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.size-popover input[type="range"] {
   width: 120px;
+  accent-color: var(--accent);
+}
+.size-popover .readout {
+  color: var(--topbar-fg);
+  min-width: 30px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* At narrower widths the labels "Size" / "Color" become redundant - the
+ * slider and swatch are self-evident, so we drop them to keep the topbar
+ * on one row at half-screen. */
+@media (max-width: 1100px) {
+  .topbar .field > span:first-child { display: none; }
+}
+.field input[type="range"] {
+  width: 96px;
   accent-color: var(--accent);
 }
 .field select {
@@ -130,16 +177,16 @@ body { display: flex; flex-direction: column; }
 .color-picker-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--topbar-control);
   color: var(--topbar-fg);
   border: 1px solid var(--topbar-border);
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
   font: inherit;
   cursor: pointer;
-  min-width: 180px;
-  height: 34px;
+  min-width: 150px;
+  height: 30px;
   text-align: left;
 }
 .color-picker-trigger:hover { background: var(--topbar-control-h); }
@@ -183,6 +230,12 @@ body { display: flex; flex-direction: column; }
 }
 .color-picker-option:hover { background: hsl(0 0% 95%); }
 .color-picker-option[aria-selected="true"] { background: hsl(0 0% 91%); }
+/* Indices that already appear in the document - highlighted with the
+ * brand teal at 50% alpha so the user can see at a glance which palette
+ * entries they've already used. */
+.color-picker-option.used { background: hsl(180 60% 40% / 0.5); }
+.color-picker-option.used:hover { background: hsl(180 60% 40% / 0.6); }
+.color-picker-option.used[aria-selected="true"] { background: hsl(180 60% 40% / 0.65); }
 .color-picker-option .swatch {
   width: 18px;
   height: 18px;
@@ -196,8 +249,8 @@ body { display: flex; flex-direction: column; }
 
 .icon-field {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
 }
 .icon-field .icon-host {
   display: inline-flex;
@@ -226,7 +279,16 @@ body { display: flex; flex-direction: column; }
   font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
-.zoom-readout { color: var(--topbar-muted); min-width: 48px; text-align: right; }
+.zoom-readout {
+  color: var(--topbar-muted);
+  min-width: 48px;
+  text-align: right;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.zoom-readout:hover { color: var(--topbar-fg); background: var(--topbar-control); }
 
 .swatch {
   position: relative;
@@ -284,6 +346,109 @@ body { display: flex; flex-direction: column; }
 #status-pos { min-width: 80px; }
 .statusbar-value.statusbar-id { min-width: 160px; }
 .statusbar-sep { color: var(--topbar-muted); }
+.statusbar-spacer { flex: 1; }
+.statusbar .statusbar-btn {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border-color: transparent;
+}
+.statusbar .statusbar-btn:hover:not(:disabled) {
+  background: var(--topbar-control);
+  border-color: var(--topbar-border);
+}
+.statusbar .statusbar-btn svg { width: 14px; height: 14px; }
+
+/* Compact reference-image controls for the status bar */
+.statusbar-icon-field {
+  position: relative;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+}
+.statusbar-icon-field .icon-host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--topbar-fg);
+}
+.statusbar-icon-field:hover .icon-host {
+  background: var(--topbar-control);
+  border-color: var(--topbar-border);
+}
+.statusbar-icon-field svg { width: 14px; height: 14px; }
+.statusbar-icon-field input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.statusbar-range {
+  width: 96px;
+  accent-color: var(--accent);
+}
+.statusbar-opacity-readout { min-width: 36px; text-align: right; color: var(--topbar-muted); }
+
+/* "Used: N" indicator with hover popup that lists the indices in the doc */
+.statusbar-used {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: 4px;
+  cursor: help;
+  outline: none;
+}
+.statusbar-used:hover { background: var(--topbar-control); }
+.status-used-popup {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  border: 1px solid var(--topbar-border);
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  padding: 8px 10px;
+  display: none;
+  font-family: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 60;
+  min-width: 180px;
+}
+.statusbar-used:hover .status-used-popup,
+.statusbar-used:focus .status-used-popup,
+.statusbar-used:focus-within .status-used-popup { display: block; }
+.status-used-popup .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-variant-numeric: tabular-nums;
+}
+.status-used-popup .row .swatch {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border-radius: 2px;
+  border: 1px solid var(--topbar-border);
+  flex: 0 0 auto;
+}
+.status-used-popup .row .label { font-weight: 600; }
+.status-used-popup .row .name { color: var(--topbar-muted); flex: 1; }
+.status-used-popup .row .count { color: var(--topbar-muted); margin-left: auto; }
+.status-used-popup .empty { color: var(--topbar-muted); font-style: italic; }
+
 .status-swatch {
   display: inline-block;
   width: 14px;

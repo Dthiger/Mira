@@ -12,8 +12,10 @@
   <body>
     <header class="topbar">
       <div class="brand">
-        <img src="/mira-logo.png" alt="Mira vision" class="brand-logo" width="99" height="70" />
+        <img src="/mira-logo.png" alt="Mira vision" class="brand-logo" width="79" height="56" />
       </div>
+
+      <div class="spacer"></div>
 
       <div class="tool-group" role="radiogroup" aria-label="Tool">
         <button class="icon-btn tool-btn" data-tool="brush" data-icon="brush" aria-pressed="true" title="Brush (B)"></button>
@@ -21,21 +23,15 @@
         <button class="icon-btn tool-btn" data-tool="bucket" data-icon="bucket" aria-pressed="false" title="Paint bucket (G)"></button>
       </div>
 
-      <div class="tool-group">
-        <button id="erase-all-toggle" class="icon-btn" data-icon="eraser" aria-pressed="false" title="Erase all (E) - all tools subtract anything they touch"></button>
-        <button id="erase-selected-toggle" class="icon-btn" data-icon="eraser-selected" aria-pressed="false" title="Erase selected color only (Shift+E) - only clears pixels matching the active color"></button>
+      <div class="tool-group" role="radiogroup" aria-label="Eraser tools">
+        <button class="icon-btn tool-btn" data-tool="erase-all" data-icon="eraser" aria-pressed="false" title="Erase all (E) - brush that erases anything touched"></button>
+        <button class="icon-btn tool-btn" data-tool="erase-selected" data-icon="eraser-selected" aria-pressed="false" title="Erase selected color (Shift+E) - brush that only erases the active color"></button>
       </div>
 
       <div class="tool-group">
         <button id="undo-btn" class="icon-btn" data-icon="undo" title="Undo (Ctrl+Z)" disabled></button>
         <button id="redo-btn" class="icon-btn" data-icon="redo" title="Redo (Ctrl+Shift+Z)" disabled></button>
       </div>
-
-      <label class="field">
-        <span>Size</span>
-        <input id="size-slider" type="range" min="1" max="200" value="16" />
-        <span id="size-readout" class="readout">16</span>
-      </label>
 
       <div class="field">
         <span>Color</span>
@@ -49,25 +45,16 @@
         </div>
       </div>
 
-      <label class="field icon-field" title="Load reference image">
-        <span class="icon-host" data-icon="image"></span>
-        <input id="ref-input" type="file" accept="image/*" />
-      </label>
-
-      <label class="field">
-        <span>Ref opacity</span>
-        <input id="ref-opacity" type="range" min="0" max="100" value="50" />
-        <span id="ref-opacity-readout" class="readout">50%</span>
-      </label>
-
       <div class="spacer"></div>
 
-      <button id="fit-btn" class="icon-btn" data-icon="fit" title="Fit to view (F)"></button>
-      <span id="zoom-readout" class="readout zoom-readout">100%</span>
-
       <button id="help-btn" class="icon-btn" data-icon="help" title="Help / shortcuts (?)"></button>
-      <button id="export-dist-btn" class="icon-btn primary" data-icon="distance" title="Export distance-fill PNG (16-bit RGBA + JSON sidecar)"></button>
+      <button id="export-dist-btn" class="icon-btn primary" data-icon="save" title="Export distance-fill PNG (16-bit RGBA + JSON sidecar)"></button>
     </header>
+
+    <div id="size-popover" class="size-popover" role="group" aria-label="Brush size" hidden>
+      <input id="size-slider" type="range" min="1" max="200" value="16" />
+      <span id="size-readout" class="readout">16</span>
+    </div>
 
     <main id="stage" class="stage">
       <div id="canvas-stack" class="canvas-stack">
@@ -95,6 +82,23 @@
       <span class="statusbar-label">Id</span>
       <span id="status-swatch" class="status-swatch" aria-hidden="true"></span>
       <span id="status-id" class="statusbar-value statusbar-id">—</span>
+      <span class="statusbar-sep">·</span>
+      <span id="status-used" class="statusbar-used" tabindex="0">
+        <span class="statusbar-label">Used</span>
+        <span id="status-used-count" class="statusbar-value">0</span>
+        <div id="status-used-popup" class="status-used-popup" role="tooltip" aria-hidden="true"></div>
+      </span>
+      <span class="statusbar-spacer"></span>
+      <span class="statusbar-label">Ref</span>
+      <label class="statusbar-icon-field" title="Load reference image">
+        <span class="icon-host" data-icon="image"></span>
+        <input id="ref-input" type="file" accept="image/*" />
+      </label>
+      <input id="ref-opacity" type="range" min="0" max="100" value="50" class="statusbar-range" title="Reference image opacity" />
+      <span id="ref-opacity-readout" class="statusbar-value statusbar-opacity-readout">50%</span>
+      <span class="statusbar-sep">·</span>
+      <button id="fit-btn" class="icon-btn statusbar-btn" data-icon="fit" title="Fit to view (F)"></button>
+      <span id="zoom-readout" class="readout zoom-readout">100%</span>
     </footer>
 
     <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
@@ -109,9 +113,9 @@
             <dt>Brush</dt><dd>Paint with the active color. Press and drag. <kbd>B</kbd></dd>
             <dt>Lasso</dt><dd>Click to add control points; the outline is a smooth spline through them, the fill is hard-edged. <kbd>L</kbd></dd>
             <dt>Paint bucket</dt><dd>Flood-fill the connected region under the cursor. <kbd>G</kbd></dd>
-            <dt>Erase all</dt><dd>All tools subtract anything they touch. <kbd>E</kbd></dd>
-            <dt>Erase selected</dt><dd>All tools subtract only pixels of the currently-selected color (magic eraser). <kbd>Shift</kbd>+<kbd>E</kbd></dd>
-            <dt>Quick erase</dt><dd>Hold <kbd>Ctrl</kbd> while drawing for a one-off erase-all that lasts only while the key is held.</dd>
+            <dt>Erase all</dt><dd>Brush-shaped tool that erases anything touched. <kbd>E</kbd></dd>
+            <dt>Erase selected</dt><dd>Brush-shaped tool that only erases pixels of the currently-selected color (magic eraser). <kbd>Shift</kbd>+<kbd>E</kbd></dd>
+            <dt>Quick erase</dt><dd>Hold <kbd>Ctrl</kbd> while using the brush for a one-off erase that lasts only while the key is held.</dd>
           </dl>
         </section>
 

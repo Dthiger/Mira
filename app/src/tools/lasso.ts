@@ -1,11 +1,8 @@
 import type { MaskDocument } from '../document.ts';
 import type { PaintRenderer } from '../renderer.ts';
-import { BACKGROUND_INDEX, type EraseMode } from '../palette.ts';
 
 export interface LassoState {
   colorIndex: number;
-  /** Three-state erase mode (off / all / selected). */
-  eraseMode: EraseMode;
 }
 
 export interface Point { x: number; y: number; }
@@ -123,7 +120,7 @@ export class LassoTool {
       return;
     }
     const polygon = sampleClosedCatmullRom(cleaned, 24);
-    fillPolygon(this.doc, polygon, this.state.colorIndex, this.state.eraseMode);
+    fillPolygon(this.doc, polygon, this.state.colorIndex);
     const bounds = polygonBounds(polygon, this.doc.width, this.doc.height);
     if (bounds) {
       this.renderer.renderRect(bounds.x0, bounds.y0, bounds.x1 - bounds.x0, bounds.y1 - bounds.y0);
@@ -240,22 +237,12 @@ function centripetalCR(
  * Even-odd scanline polygon fill. Pixel (x, y) is set if the polygon
  * (treated as a closed loop) contains the pixel center (x + 0.5, y + 0.5).
  * Hard edges: every pixel is fully on or fully off.
- *
- * In 'selected' erase mode, pixels are only cleared when their current
- * value already equals colorIndex (magic-eraser style).
  */
-function fillPolygon(
-  doc: MaskDocument,
-  polygon: Point[],
-  colorIndex: number,
-  mode: EraseMode,
-): void {
+function fillPolygon(doc: MaskDocument, polygon: Point[], colorIndex: number): void {
   if (polygon.length < 3) return;
   const w = doc.width;
   const h = doc.height;
   const px = doc.pixels;
-  const writeValue = mode === 'off' ? colorIndex : BACKGROUND_INDEX;
-  const selectedOnly = mode === 'selected';
 
   let yMin = Infinity, yMax = -Infinity;
   for (const p of polygon) {
@@ -283,13 +270,7 @@ function fillPolygon(
       const x0 = Math.max(0, Math.floor(xs[k] + 0.5));
       const x1 = Math.min(w - 1, Math.ceil(xs[k + 1] - 0.5));
       const row = y * w;
-      if (selectedOnly) {
-        for (let x = x0; x <= x1; x++) {
-          if (px[row + x] === colorIndex) px[row + x] = BACKGROUND_INDEX;
-        }
-      } else {
-        for (let x = x0; x <= x1; x++) px[row + x] = writeValue;
-      }
+      for (let x = x0; x <= x1; x++) px[row + x] = colorIndex;
     }
   }
 }
