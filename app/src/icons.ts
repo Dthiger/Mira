@@ -16,7 +16,8 @@ export type IconName =
   | 'image'
   | 'undo'
   | 'redo'
-  | 'help';
+  | 'help'
+  | 'pillow';
 
 const PATHS: Record<IconName, string> = {
   // Special-cased in icon() to overlay + and - badges; empty here.
@@ -52,6 +53,9 @@ const PATHS: Record<IconName, string> = {
   // Material "help_outline" - circled question mark
   help:
     'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z',
+  // Custom "pillow" icon - a rounded squishy puff with subtle depth
+  pillow:
+    'M5 7c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V7zm2-.5c-.83 0-1.5.67-1.5 1.5v9c0 .83.67 1.5 1.5 1.5h10c.83 0 1.5-.67 1.5-1.5v-9c0-.83-.67-1.5-1.5-1.5H7zm5 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z',
 };
 
 export function icon(name: IconName, size = 18): string {

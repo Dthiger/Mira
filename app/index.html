@@ -39,6 +39,10 @@
         <button id="redo-btn" class="icon-btn" data-icon="redo" title="Redo (Ctrl+Shift+Z)" disabled></button>
       </div>
 
+      <div class="tool-group" id="mode-group" aria-label="Sim modes">
+        <button id="pillow-btn" class="icon-btn" data-icon="pillow" aria-pressed="false" title="Pillow mode - soft-body deformation"></button>
+      </div>
+
       <div class="field">
         <span>Color</span>
         <div id="color-picker" class="color-picker">
@@ -64,10 +68,33 @@
       <span id="size-readout" class="readout">16</span>
     </div>
 
+    <div id="pillow-toolbar" class="sim-toolbar" role="group" aria-label="Pillow controls" hidden>
+      <label class="sim-field">
+        <span>Drag radius</span>
+        <input id="pillow-radius" type="range" min="10" max="200" value="60" />
+        <span id="pillow-radius-readout" class="readout">60</span>
+      </label>
+      <label class="sim-field">
+        <span>Drag strength</span>
+        <input id="pillow-strength" type="range" min="0" max="100" value="70" />
+        <span id="pillow-strength-readout" class="readout">0.70</span>
+      </label>
+      <label class="sim-field">
+        <span>Stiffness</span>
+        <input id="pillow-stiffness" type="range" min="10" max="200" value="100" />
+        <span id="pillow-stiffness-readout" class="readout">1.00</span>
+      </label>
+      <button id="pillow-reset-btn" class="icon-btn" title="Reset to rest positions">Reset</button>
+      <button id="pillow-bake-btn" class="text-btn primary" title="Bake deformed mesh into the mask">
+        <span>Bake</span>
+      </button>
+    </div>
+
     <main id="stage" class="stage">
       <div id="canvas-stack" class="canvas-stack">
         <canvas id="paint-canvas"></canvas>
         <img id="ref-img" alt="" />
+        <canvas id="sim-canvas"></canvas>
         <canvas id="overlay-canvas"></canvas>
         <svg id="brush-cursor" preserveAspectRatio="none" aria-hidden="true">
           <circle id="brush-cursor-outer" fill="none" stroke="rgba(0,0,0,0.75)" stroke-width="3" vector-effect="non-scaling-stroke"/>

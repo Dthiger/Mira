@@ -14,6 +14,7 @@ export const stageEl = $<HTMLElement>('#stage');
 export const stackEl = $<HTMLDivElement>('#canvas-stack');
 export const paintCanvas = $<HTMLCanvasElement>('#paint-canvas');
 export const overlayCanvas = $<HTMLCanvasElement>('#overlay-canvas');
+export const simCanvas = $<HTMLCanvasElement>('#sim-canvas');
 export const refImg = $<HTMLImageElement>('#ref-img');
 
 export const colorPicker = $<HTMLDivElement>('#color-picker');
@@ -37,6 +38,8 @@ export const loadInput = $<HTMLInputElement>('#load-input');
 export const fitBtn = $<HTMLButtonElement>('#fit-btn');
 export const undoBtn = $<HTMLButtonElement>('#undo-btn');
 export const redoBtn = $<HTMLButtonElement>('#redo-btn');
+
+export const pillowBtn = $<HTMLButtonElement>('#pillow-btn');
 
 export const helpBtn = $<HTMLButtonElement>('#help-btn');
 export const helpDialog = $<HTMLDialogElement>('#help-dialog');

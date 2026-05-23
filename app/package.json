@@ -9,10 +9,13 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/earcut": "^3.0.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
   },
   "dependencies": {
-    "fast-png": "^8.0.0"
+    "earcut": "^3.0.2",
+    "fast-png": "^8.0.0",
+    "simplex-noise": "^4.0.3"
   }
 }

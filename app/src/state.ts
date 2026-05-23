@@ -26,6 +26,10 @@ export const MAX_SCALE = 64;
 export type ToolName = 'brush' | 'lasso' | 'bucket' | 'erase-all' | 'erase-selected';
 export type DragMode = null | 'paint' | 'lasso' | 'pan' | 'size';
 
+/** App-level mode. Paint = normal mask editing; pillow/swirl are sim modes
+ *  that hide the paint toolbar and present their own controls. */
+export type AppMode = 'paint' | 'pillow' | 'swirl';
+
 /** Tools that share the brush engine - and therefore the brush size, the
  *  brush-radius preview, and the floating size popover. */
 export const BRUSH_SHAPED_TOOLS: readonly ToolName[] = ['brush', 'erase-all', 'erase-selected'];
@@ -73,6 +77,9 @@ export const state = {
 
   /** Active tool. Owned by toolManager.ts. */
   activeTool: 'brush' as ToolName,
+
+  /** App mode. Owned by simManager.ts. */
+  mode: 'paint' as AppMode,
 
   /** Last cursor doc-coords (or -1, -1 if off canvas). Owned by events.ts. */
   cursorX: -1,

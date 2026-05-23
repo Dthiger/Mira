@@ -9,7 +9,7 @@ import { state, brushState, isBrushShaped } from '../state.ts';
 import { updateBrushCursor } from './cursors.ts';
 
 export function updateSizePopover(): void {
-  if (!isBrushShaped(state.activeTool)) {
+  if (state.mode !== 'paint' || !isBrushShaped(state.activeTool)) {
     sizePopover.hidden = true;
     return;
   }

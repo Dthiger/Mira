@@ -533,6 +533,28 @@ body { display: flex; flex-direction: column; }
   image-rendering: auto;
 }
 #paint-canvas { pointer-events: none; }
+#sim-canvas {
+  pointer-events: none;
+  display: none;
+}
+/* In pillow/swirl mode, the sim canvas takes over visually and the paint
+ * canvas is dimmed so the user can still see context but knows it's not
+ * being edited. */
+body.mode-pillow #sim-canvas,
+body.mode-swirl #sim-canvas { display: block; }
+body.mode-pillow #paint-canvas,
+body.mode-swirl #paint-canvas { opacity: 0.15; }
+
+/* Hide paint toolbar groups while in a sim mode. The mode-specific
+ * floating toolbar (#pillow-toolbar) takes over the controls slot. */
+body.mode-pillow .tool-group[role="radiogroup"],
+body.mode-swirl  .tool-group[role="radiogroup"],
+body.mode-pillow #color-picker,
+body.mode-swirl  #color-picker,
+body.mode-pillow .field:has(#color-picker),
+body.mode-swirl  .field:has(#color-picker) { display: none; }
+body.mode-pillow #size-popover,
+body.mode-swirl  #size-popover { display: none !important; }
 
 /* OS cursor is hidden over the canvas; the +/- glyph below stands in.
  * That way the indicator never vanishes mid-stroke (some browsers/drivers
@@ -629,6 +651,38 @@ body { display: flex; flex-direction: column; }
   color: var(--topbar-fg);
   white-space: nowrap;
 }
+
+/* Sim-mode floating toolbar (pillow / swirl). Same positioning model as
+ * the size popover: fixed under the topbar, centered, only shown when
+ * the relevant mode is active. */
+.sim-toolbar {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--topbar-bg);
+  border: 1px solid var(--topbar-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+  font-size: 12px;
+}
+.sim-toolbar[hidden] { display: none; }
+.sim-field { display: flex; align-items: center; gap: 6px; color: var(--topbar-muted); }
+.sim-field > span:first-child {
+  font-size: 11px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.sim-field input[type="range"] { width: 100px; accent-color: var(--accent); }
+.sim-field .readout { color: var(--topbar-fg); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+.sim-toolbar .icon-btn { width: auto; padding: 0 12px; font-size: 12px; }
+
+body.mode-pillow #pillow-toolbar { display: flex; }
 
 /* Brush size preview rendered as vector so strokes stay 1 screen-pixel
  * crisp at any zoom level (the canvases use image-rendering: pixelated,

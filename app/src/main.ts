@@ -26,6 +26,8 @@ import { updateCursorGlyph } from './ui/cursors.ts';
 import { redrawLassoPreview } from './ui/lassoPreview.ts';
 import { refreshUsedIdsStatus, updateStatusbar } from './ui/statusBar.ts';
 import { initToolManager } from './toolManager.ts';
+import { initSimManager } from './simManager.ts';
+import { initPillowToolbar } from './ui/pillowToolbar.ts';
 import { initEvents, onLassoStateChange } from './events.ts';
 
 import { computeDistanceFill, encodeDistanceFillPng } from './distfill.ts';
@@ -54,6 +56,8 @@ setLassoCallback(onLassoStateChange);
 initColorPicker();
 initSizePopover();
 initToolManager();
+initSimManager();
+initPillowToolbar();
 initEvents();
 
 fitToView();

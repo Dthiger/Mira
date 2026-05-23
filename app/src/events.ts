@@ -13,6 +13,12 @@ import {
 } from './state.ts';
 import { eventToDoc, fitToView, wheelZoom, pan } from './viewport.ts';
 import { setTool, syncBrushEraseModeToTool } from './toolManager.ts';
+import {
+  dragBegin as pillowDragBegin,
+  dragMove as pillowDragMove,
+  dragEnd as pillowDragEnd,
+  pillowUndo,
+} from './sim/pillow/index.ts';
 import { setBrushSize } from './ui/sizePopover.ts';
 import { cyclePaletteColor } from './ui/colorPicker.ts';
 import { updateStatusbar, refreshUsedIdsStatus } from './ui/statusBar.ts';
@@ -68,6 +74,12 @@ export function initEvents(): void {
     if (evt.button === 0) {
       const { dx, dy } = eventToDoc(evt);
       stageEl.setPointerCapture(evt.pointerId);
+      // Sim modes intercept LMB-drag before any paint-tool routing.
+      if (state.mode === 'pillow') {
+        state.dragMode = 'paint'; // reuse 'paint' as the "LMB is held" marker
+        pillowDragBegin(dx, dy);
+        return;
+      }
       if (isBrushShaped(state.activeTool)) {
         history.commit();
         state.dragMode = 'paint';
@@ -101,6 +113,10 @@ export function initEvents(): void {
     const { dx, dy } = eventToDoc(evt);
     state.cursorX = dx;
     state.cursorY = dy;
+    if (state.mode === 'pillow') {
+      if (state.dragMode === 'paint') pillowDragMove(dx, dy);
+      return;
+    }
     if (state.dragMode === 'paint') brush.move(dx, dy);
     else if (state.dragMode === 'lasso') lasso.pointerMove(dx, dy);
     redrawOverlay();
@@ -110,8 +126,14 @@ export function initEvents(): void {
     if (stageEl.hasPointerCapture(evt.pointerId)) {
       stageEl.releasePointerCapture(evt.pointerId);
     }
-    if (state.dragMode === 'paint') { brush.end(); refreshUsedIdsStatus(); }
-    else if (state.dragMode === 'lasso') lasso.pointerUp();
+    if (state.mode === 'pillow' && state.dragMode === 'paint') {
+      pillowDragEnd();
+    } else if (state.dragMode === 'paint') {
+      brush.end();
+      refreshUsedIdsStatus();
+    } else if (state.dragMode === 'lasso') {
+      lasso.pointerUp();
+    }
     stageEl.classList.remove('panning', 'sizing', 'painting');
     state.dragMode = null;
   });
@@ -145,6 +167,13 @@ export function initEvents(): void {
 
     if (meta && evt.key.toLowerCase() === 'z') {
       evt.preventDefault();
+      // In pillow mode, Ctrl+Z rewinds one stroke of vertex motion (sim-
+      // internal undo). Sim mode doesn't touch doc.pixels until bake, so
+      // the doc-level history stays unused here.
+      if (state.mode === 'pillow' && !evt.shiftKey) {
+        pillowUndo();
+        return;
+      }
       if (evt.shiftKey) {
         if (history.redo()) { renderer.renderAll(); updateStatusbar(); refreshUsedIdsStatus(); }
       } else {
