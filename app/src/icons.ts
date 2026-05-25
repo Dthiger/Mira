@@ -17,7 +17,8 @@ export type IconName =
   | 'undo'
   | 'redo'
   | 'help'
-  | 'pillow';
+  | 'pillow'
+  | 'swirl';
 
 const PATHS: Record<IconName, string> = {
   // Special-cased in icon() to overlay + and - badges; empty here.
@@ -56,6 +57,9 @@ const PATHS: Record<IconName, string> = {
   // Custom "pillow" icon - a rounded squishy puff with subtle depth
   pillow:
     'M5 7c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V7zm2-.5c-.83 0-1.5.67-1.5 1.5v9c0 .83.67 1.5 1.5 1.5h10c.83 0 1.5-.67 1.5-1.5v-9c0-.83-.67-1.5-1.5-1.5H7zm5 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z',
+  // "swirl" - a stylized spiral evoking curl-noise flow.
+  swirl:
+    'M12 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7v2a5 5 0 1 0 5 5h-2a3 3 0 1 1-3-3V3z',
 };
 
 export function icon(name: IconName, size = 18): string {

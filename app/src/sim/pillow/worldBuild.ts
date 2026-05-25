@@ -1,27 +1,34 @@
 /**
  * Build a `SimWorld` from the current document. Each connected region of
- * identical palette value (CCL) becomes a `SimBody`: a triangle mesh built
- * by tracing the boundary, simplifying, and ear-clipping the polygon, then
- * scattering a few interior vertices and linking everything with springs.
+ * identical palette value (CCL) becomes a `SimBody` with a POLAR-SHELL mesh
+ * topology: a single center vertex, K concentric rings of N vertices each
+ * arranged angularly around the centroid, and triangle faces connecting
+ * adjacent rings (plus a fan from the center to the innermost ring).
  *
- * Regions under MIN_BODY_PIXELS are skipped (they pass through bake
- * unchanged). Holes inside regions are ignored - a nested region is just
- * another body that happens to lie inside, and the bake z-order draws
- * outer-then-inner so the result matches what the user sees.
+ * Why polar shell over Delaunay or grid:
+ *   - Looks intentional, like contour rings on a topographic map.
+ *   - Spring lengths are uniform within each ring -> consistent stiffness
+ *     under uniform pressure (a real squishy ball deforms in rings).
+ *   - Radial spokes give shear resistance from the center outward.
+ *
+ * Mathematical caveat: this is correct ONLY for star-shaped regions (every
+ * boundary point is visible from the centroid). Strongly concave shapes
+ * may produce overlapping triangles where rays cross concave bays. For
+ * painted blobs (usually convex-ish) this is fine.
+ *
+ * Regions under MIN_BODY_PIXELS are skipped; they pass through bake
+ * unchanged.
  */
 
-import earcut from 'earcut';
 import { connectedComponents, NO_REGION } from '../../ccl.ts';
 import type { MaskDocument } from '../../document.ts';
 import type { SimWorld, SimBody, SimVertex, SimEdge, SimTriangle } from './types.ts';
 
 const MIN_BODY_PIXELS = 20;
-const BOUNDARY_VERTEX_SPACING = 4;           // doc-px per simplified boundary vertex
-const INTERIOR_VERTEX_AREA_PER = 200;        // doc-px² per interior vertex
-const PIN_DIST = 2;                          // canvas-frame pin tolerance
-const K_EDGE = 0.8;
-const K_DIAG = 0.5;
-const DIAG_FRACTION = 0.15;                  // ~15% of vertex pairs get a diagonal
+const BOUNDARY_VERTEX_SPACING = 4;           // doc-px between simplified boundary verts (the polygon rays are cast against)
+const SLICE_ARC_TARGET = 8;                  // doc-px target arc length between adjacent ring verts — controls boundary smoothness after bake
+const RING_RADIAL_TARGET = 26;               // doc-px target distance between adjacent rings
+const K_EDGE = 0.5; // softer springs — body should squish and ooze, not snap back
 
 export function buildPillowWorld(doc: MaskDocument): SimWorld {
   const { regions, regionPaletteIndex, regionCount } = connectedComponents(doc);
@@ -30,7 +37,6 @@ export function buildPillowWorld(doc: MaskDocument): SimWorld {
 
   const bodies: SimBody[] = [];
 
-  // Per-region pixel count to enforce MIN_BODY_PIXELS.
   const regionPixelCount = new Uint32Array(regionCount);
   for (let i = 0; i < regions.length; i++) {
     const r = regions[i];
@@ -54,7 +60,7 @@ function buildBodyForRegion(
   h: number,
   bodyIndex: number,
 ): SimBody | null {
-  // 1. Find a starting boundary pixel (the topmost-leftmost pixel of the region).
+  // 1. Topmost-leftmost pixel of the region.
   let startX = -1, startY = -1;
   outer: for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -63,98 +69,120 @@ function buildBodyForRegion(
   }
   if (startX < 0) return null;
 
-  // 2. Trace the outer boundary via Moore-neighbor / Theo Pavlidis-style walk.
-  //    We use a simple 4-connected outer-boundary follower: at each step look
-  //    for the next boundary pixel CCW around the current one.
+  // 2. Trace + simplify the boundary. The boundary polygon is only used
+  //    to compute ray hit distances for the polar shell; it doesn't appear
+  //    in the mesh directly.
   const raw = traceBoundary(regions, regionId, startX, startY, w, h);
   if (raw.length < 3) return null;
-
-  // 3. Simplify the polyline to target spacing.
   const simplified = simplifyByDistance(raw, BOUNDARY_VERTEX_SPACING);
   if (simplified.length < 3) return null;
 
-  // 4. Ear-clip triangulate. earcut takes a flat [x0,y0,x1,y1,...] array.
-  const flat = new Float64Array(simplified.length * 2);
-  for (let i = 0; i < simplified.length; i++) {
-    flat[i * 2] = simplified[i].x;
-    flat[i * 2 + 1] = simplified[i].y;
+  // 3. Centroid of the simplified polygon (area-weighted).
+  const { cx, cy } = polygonCentroid(simplified);
+
+  // 4. Estimate body radius with a coarse 8-direction ray probe. Used to
+  //    pick mesh density (N slices, K rings).
+  let coarseAvg = 0;
+  for (let s = 0; s < 8; s++) {
+    const theta = (s / 8) * Math.PI * 2;
+    coarseAvg += rayBoundaryDistance(simplified, cx, cy, Math.cos(theta), Math.sin(theta));
   }
-  const triIndices = earcut(flat);
-  if (triIndices.length === 0) return null;
+  coarseAvg /= 8;
+  if (coarseAvg < 4) return null;
 
-  // 5. Build vertex array (boundary first; interior vertices appended below).
-  const vertices: SimVertex[] = simplified.map((p) => ({
-    px: p.x, py: p.y,
-    qx: p.x, qy: p.y,
-    rx: p.x, ry: p.y,
-    pinned:
-      p.x <= PIN_DIST || p.x >= w - PIN_DIST ||
-      p.y <= PIN_DIST || p.y >= h - PIN_DIST,
-    bodyIndex,
-  }));
+  const N_SLICES = clamp(Math.round((2 * Math.PI * coarseAvg) / SLICE_ARC_TARGET), 16, 96);
+  const K_RINGS = clamp(Math.round(coarseAvg / RING_RADIAL_TARGET), 2, 6);
 
-  // 6. Triangles (boundary-only at this point).
+  // 5. Resample boundary ray distances at the final N_SLICES.
+  const dists = new Float64Array(N_SLICES);
+  for (let s = 0; s < N_SLICES; s++) {
+    const theta = (s / N_SLICES) * Math.PI * 2;
+    dists[s] = rayBoundaryDistance(simplified, cx, cy, Math.cos(theta), Math.sin(theta));
+  }
+
+  // 6. Build vertices: a single center vert + K rings of N verts each.
+  const vertices: SimVertex[] = [];
+  const centerIdx = vertices.length;
+  vertices.push(makeVertex(cx, cy, false, bodyIndex));
+
+  const ringIdx: number[][] = [];
+  for (let k = 1; k <= K_RINGS; k++) {
+    const t = k / K_RINGS;
+    const ring: number[] = [];
+    for (let s = 0; s < N_SLICES; s++) {
+      const theta = (s / N_SLICES) * Math.PI * 2;
+      const r = dists[s] * t;
+      const x = cx + Math.cos(theta) * r;
+      const y = cy + Math.sin(theta) * r;
+      // No auto-pinning at the doc edge: bodies should be free to float
+      // into the expanded buffer area (see enforceContainment in step.ts).
+      // Shape matching + containment together keep them stable.
+      ring.push(vertices.length);
+      vertices.push(makeVertex(x, y, false, bodyIndex));
+    }
+    ringIdx.push(ring);
+  }
+
+  // 7. Triangulate. Center fan -> innermost ring, then quad strips between
+  //    each adjacent ring pair (split into 2 triangles per quad).
   const triangles: SimTriangle[] = [];
-  for (let i = 0; i < triIndices.length; i += 3) {
-    triangles.push({ v0: triIndices[i], v1: triIndices[i + 1], v2: triIndices[i + 2] });
+  for (let s = 0; s < N_SLICES; s++) {
+    const a = ringIdx[0][s];
+    const b = ringIdx[0][(s + 1) % N_SLICES];
+    triangles.push({ v0: centerIdx, v1: a, v2: b });
+  }
+  for (let k = 0; k < K_RINGS - 1; k++) {
+    for (let s = 0; s < N_SLICES; s++) {
+      const a = ringIdx[k][s];
+      const b = ringIdx[k][(s + 1) % N_SLICES];
+      const c = ringIdx[k + 1][(s + 1) % N_SLICES];
+      const d = ringIdx[k + 1][s];
+      triangles.push({ v0: a, v1: b, v2: c });
+      triangles.push({ v0: a, v1: c, v2: d });
+    }
   }
 
-  // 7. Scatter interior vertices proportional to area.
-  const area = polygonArea(simplified);
-  const interiorCount = Math.max(0, Math.floor(area / INTERIOR_VERTEX_AREA_PER));
-  for (let k = 0; k < interiorCount; k++) {
-    const ip = randomInteriorPoint(simplified, regions, regionId, w);
-    if (!ip) continue;
-    // Find which triangle contains this point and split it into three.
-    const triIdx = findContainingTriangle(triangles, vertices, ip.x, ip.y);
-    if (triIdx < 0) continue;
-
-    const newIdx = vertices.length;
-    vertices.push({
-      px: ip.x, py: ip.y,
-      qx: ip.x, qy: ip.y,
-      rx: ip.x, ry: ip.y,
-      pinned: false,
-      bodyIndex,
-    });
-    const tri = triangles[triIdx];
-    triangles.splice(triIdx, 1);
-    triangles.push({ v0: tri.v0, v1: tri.v1, v2: newIdx });
-    triangles.push({ v0: tri.v1, v1: tri.v2, v2: newIdx });
-    triangles.push({ v0: tri.v2, v1: tri.v0, v2: newIdx });
-  }
-
-  // 8. Spring edges: triangle edges (k_edge) + a fraction of random diagonals.
+  // 8. Spring edges = triangle edges. No random diagonals needed; the
+  //    radial spokes already provide shear resistance.
   const edgeSet = new Map<string, SimEdge>();
   for (const t of triangles) {
     addEdge(edgeSet, vertices, t.v0, t.v1, K_EDGE);
     addEdge(edgeSet, vertices, t.v1, t.v2, K_EDGE);
     addEdge(edgeSet, vertices, t.v2, t.v0, K_EDGE);
   }
-  // Random long-range diagonals for shear resistance.
-  const targetDiag = Math.floor(vertices.length * DIAG_FRACTION);
-  for (let k = 0; k < targetDiag * 3 && edgeSet.size < (vertices.length * (vertices.length - 1)) / 2; k++) {
-    const a = (Math.random() * vertices.length) | 0;
-    const b = (Math.random() * vertices.length) | 0;
-    if (a === b) continue;
-    if (Math.abs(a - b) < 3) continue; // skip near-neighbors (already triangle edges typically)
-    addEdge(edgeSet, vertices, a, b, K_DIAG);
-  }
   const edges: SimEdge[] = Array.from(edgeSet.values());
 
-  // 9. Centroid.
-  let cx = 0, cy = 0;
-  for (const v of vertices) { cx += v.px; cy += v.py; }
-  cx /= vertices.length;
-  cy /= vertices.length;
+  // 9. Centroid (recompute from final verts for the SimBody's stored value).
+  let ccx = 0, ccy = 0;
+  for (const v of vertices) { ccx += v.px; ccy += v.py; }
+  ccx /= vertices.length;
+  ccy /= vertices.length;
+
+  // 10. Outer ring = closed boundary polygon for inter-body collision.
+  const boundaryIndices = ringIdx[K_RINGS - 1].slice();
 
   return {
     paletteIndex,
     vertices,
     edges,
     triangles,
-    centroid: { x: cx, y: cy },
+    boundaryIndices,
+    centroid: { x: ccx, y: ccy },
   };
+}
+
+function makeVertex(x: number, y: number, pinned: boolean, bodyIndex: number): SimVertex {
+  return {
+    px: x, py: y,
+    qx: x, qy: y,
+    rx: x, ry: y,
+    pinned,
+    bodyIndex,
+  };
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
 }
 
 // ---------- Boundary tracing ----------
@@ -169,38 +197,31 @@ function traceBoundary(
   w: number,
   h: number,
 ): PointF[] {
-  // Square-tracing on the pixel grid. We trace the corner-vertex polygon of
-  // the region rather than pixel centers, so the boundary aligns with the
-  // pixel edges and the polygon area equals the region's pixel count.
-  // For simplicity here, we emit pixel-corner vertices in CCW order using a
-  // Moore-neighborhood follower starting at the top-left corner of the
-  // starting pixel.
   const pts: PointF[] = [];
   const isIn = (x: number, y: number): boolean =>
     x >= 0 && y >= 0 && x < w && y < h && regions[y * w + x] === regionId;
 
-  // 8-directions for Moore-neighbor trace, starting going east (right).
-  // We trace pixel-center positions; this is a simpler approximation than
-  // corner-tracing and is good enough for the visual mesh.
+  // 8-direction Moore-neighbor trace. Encoding: 0=E, 1=SE, 2=S, 3=SW,
+  // 4=W, 5=NW, 6=N, 7=NE. Increment = CW in screen coords (y down).
   const dx = [1, 1, 0, -1, -1, -1, 0, 1];
   const dy = [0, 1, 1, 1, 0, -1, -1, -1];
 
   let cx = startX, cy = startY;
-  let prevDir = 4; // came from the left (west)
+  let prevDir = 4; // came from west
   const maxIter = w * h * 4;
   let iter = 0;
 
+  // At each step look at the 8 neighbors starting one step CW of the
+  // "back" direction (where we came from) and stepping CW. The first IN
+  // neighbor is the next boundary pixel.
   do {
     pts.push({ x: cx + 0.5, y: cy + 0.5 });
-    // Look for the next boundary pixel by checking neighbors CCW from the
-    // direction we came in from.
     let found = false;
     for (let i = 0; i < 8; i++) {
-      const dir = (prevDir + 6 + i) % 8;        // start checking 90° to the left of incoming
+      const dir = (prevDir + 1 + i) % 8;
       const nx = cx + dx[dir];
       const ny = cy + dy[dir];
       if (isIn(nx, ny)) {
-        // Going from (cx,cy) toward (nx,ny). The "came from" direction is opposite.
         prevDir = (dir + 4) % 8;
         cx = nx; cy = ny;
         found = true;
@@ -226,7 +247,6 @@ function simplifyByDistance(points: PointF[], minSpacing: number): PointF[] {
     const dy = points[i].y - last.y;
     if (dx * dx + dy * dy >= min2) out.push(points[i]);
   }
-  // Close the loop if last point is far from first.
   const first = out[0];
   const last = out[out.length - 1];
   const dx = last.x - first.x;
@@ -235,64 +255,40 @@ function simplifyByDistance(points: PointF[], minSpacing: number): PointF[] {
   return out;
 }
 
-function polygonArea(poly: PointF[]): number {
-  let a = 0;
+function polygonCentroid(poly: PointF[]): { cx: number; cy: number } {
+  let cx = 0, cy = 0, area = 0;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    a += (poly[j].x + poly[i].x) * (poly[j].y - poly[i].y);
+    const cross = poly[j].x * poly[i].y - poly[i].x * poly[j].y;
+    cx += (poly[j].x + poly[i].x) * cross;
+    cy += (poly[j].y + poly[i].y) * cross;
+    area += cross;
   }
-  return Math.abs(a) * 0.5;
+  area *= 0.5;
+  if (Math.abs(area) < 1e-9) return { cx: poly[0].x, cy: poly[0].y };
+  return { cx: cx / (6 * area), cy: cy / (6 * area) };
 }
 
-function randomInteriorPoint(
+/** Farthest intersection of the ray (px,py) + t*(dx,dy), t>=0, with the
+ *  closed polygon. For star-shaped polygons centered on (px,py) this is
+ *  the unique boundary point along the ray. */
+function rayBoundaryDistance(
   poly: PointF[],
-  regions: Int32Array,
-  regionId: number,
-  w: number,
-): PointF | null {
-  // Rejection-sample over the polygon's bbox; reject if the underlying
-  // pixel isn't part of this region (handles concave shapes correctly).
-  let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
-  for (const p of poly) {
-    if (p.x < xMin) xMin = p.x; if (p.x > xMax) xMax = p.x;
-    if (p.y < yMin) yMin = p.y; if (p.y > yMax) yMax = p.y;
-  }
-  for (let tries = 0; tries < 40; tries++) {
-    const x = xMin + Math.random() * (xMax - xMin);
-    const y = yMin + Math.random() * (yMax - yMin);
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    if (xi < 0 || yi < 0) continue;
-    if (regions[yi * w + xi] === regionId) return { x, y };
-  }
-  return null;
-}
-
-function findContainingTriangle(
-  tris: SimTriangle[],
-  verts: SimVertex[],
-  x: number,
-  y: number,
-): number {
-  for (let i = 0; i < tris.length; i++) {
-    const t = tris[i];
-    const a = verts[t.v0], b = verts[t.v1], c = verts[t.v2];
-    if (pointInTriangle(x, y, a.px, a.py, b.px, b.py, c.px, c.py)) return i;
-  }
-  return -1;
-}
-
-function pointInTriangle(
   px: number, py: number,
-  ax: number, ay: number,
-  bx: number, by: number,
-  cx: number, cy: number,
-): boolean {
-  const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
-  const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
-  const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
-  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
-  const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
-  return !(hasNeg && hasPos);
+  dx: number, dy: number,
+): number {
+  let maxT = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const j = (i + 1) % poly.length;
+    const ax = poly[i].x, ay = poly[i].y;
+    const bx = poly[j].x, by = poly[j].y;
+    const sx = bx - ax, sy = by - ay;
+    const det = dy * sx - dx * sy;
+    if (Math.abs(det) < 1e-9) continue;
+    const t = ((ay - py) * sx - (ax - px) * sy) / det;
+    const u = (dx * (ay - py) - dy * (ax - px)) / det;
+    if (t >= 0 && u >= 0 && u <= 1 && t > maxT) maxT = t;
+  }
+  return maxT;
 }
 
 function addEdge(

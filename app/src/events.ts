@@ -23,6 +23,7 @@ import { setBrushSize } from './ui/sizePopover.ts';
 import { cyclePaletteColor } from './ui/colorPicker.ts';
 import { updateStatusbar, refreshUsedIdsStatus } from './ui/statusBar.ts';
 import { redrawOverlay } from './redraw.ts';
+import { updateCursorGlyph } from './ui/cursors.ts';
 
 let lastClientX = 0;
 let lastClientY = 0;
@@ -76,6 +77,7 @@ export function initEvents(): void {
       stageEl.setPointerCapture(evt.pointerId);
       // Sim modes intercept LMB-drag before any paint-tool routing.
       if (state.mode === 'pillow') {
+        console.log('[events] pillow LMB-down at doc', { dx, dy, mode: state.mode });
         state.dragMode = 'paint'; // reuse 'paint' as the "LMB is held" marker
         pillowDragBegin(dx, dy);
         return;
@@ -115,6 +117,7 @@ export function initEvents(): void {
     state.cursorY = dy;
     if (state.mode === 'pillow') {
       if (state.dragMode === 'paint') pillowDragMove(dx, dy);
+      updateCursorGlyph(); // sim modes still need the +/- glyph to follow the cursor
       return;
     }
     if (state.dragMode === 'paint') brush.move(dx, dy);

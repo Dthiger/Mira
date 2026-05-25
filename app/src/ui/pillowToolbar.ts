@@ -1,12 +1,15 @@
 /**
- * Pillow-mode toolbar wiring: drag/strength/stiffness sliders, Bake, Reset.
- * Bake actually rasterizes back to doc.pixels (Phase 4 work); for Phase 2
- * the button is wired but the implementation is a stub that snapshots
- * history and re-renders.
+ * Pillow-mode toolbar wiring: drag/strength/stiffness sliders, wireframe
+ * toggle, Reset, Bake. Bake snapshots the doc for undo, rasterizes the
+ * deformed mesh back into doc.pixels, re-renders, and exits to paint.
  */
 
-import { params, pillowReset } from '../sim/pillow/index.ts';
+import { doc, renderer, history } from '../state.ts';
+import { params, pillowReset, getPillowWorld } from '../sim/pillow/index.ts';
+import { renderOptions } from '../sim/pillow/render.ts';
+import { bakePillow } from '../sim/pillow/bake.ts';
 import { exitToPaint } from '../simManager.ts';
+import { updateStatusbar, refreshUsedIdsStatus } from './statusBar.ts';
 
 function $(sel: string): HTMLElement {
   const el = document.querySelector<HTMLElement>(sel);
@@ -23,6 +26,7 @@ export function initPillowToolbar(): void {
   const stiffnessReadout = $('#pillow-stiffness-readout');
   const resetBtn = $('#pillow-reset-btn');
   const bakeBtn = $('#pillow-bake-btn');
+  const wireframe = $('#pillow-wireframe') as HTMLInputElement;
 
   radius.addEventListener('input', () => {
     params.dragRadius = Number(radius.value);
@@ -37,11 +41,26 @@ export function initPillowToolbar(): void {
     stiffnessReadout.textContent = params.stiffness.toFixed(2);
   });
 
+  wireframe.addEventListener('change', () => {
+    renderOptions.wireframe = wireframe.checked;
+    renderOptions.vertDots = wireframe.checked;
+  });
+  // Initialize from checkbox's HTML default.
+  renderOptions.wireframe = wireframe.checked;
+  renderOptions.vertDots = wireframe.checked;
+
   resetBtn.addEventListener('click', () => pillowReset());
   bakeBtn.addEventListener('click', () => {
-    // Phase 4 will replace this with actual rasterization. For now: leave
-    // the mesh state intact, just inform the user it's a stub.
-    console.warn('Bake not implemented yet (Phase 4)');
+    const world = getPillowWorld();
+    if (!world) { exitToPaint(); return; }
+    // Snapshot the pre-bake doc into doc-level history so Ctrl+Z in paint
+    // mode reverts the bake. The bake itself runs synchronously and is
+    // safe to do before exit; exitToPaint tears down the sim world.
+    history.commit();
+    bakePillow(doc, world);
+    renderer.renderAll();
+    updateStatusbar();
+    refreshUsedIdsStatus();
     exitToPaint();
   });
 }

@@ -25,6 +25,10 @@ export interface SimBody {
   vertices: SimVertex[];
   edges: SimEdge[];
   triangles: SimTriangle[];
+  /** Indices into `vertices` forming the closed outer polygon, in order
+   *  around the body (the outermost ring of the polar mesh). Used by
+   *  inter-body collision: test other bodies' verts against this polygon. */
+  boundaryIndices: number[];
   centroid: { x: number; y: number };
 }
 

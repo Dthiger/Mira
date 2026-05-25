@@ -41,6 +41,7 @@
 
       <div class="tool-group" id="mode-group" aria-label="Sim modes">
         <button id="pillow-btn" class="icon-btn" data-icon="pillow" aria-pressed="false" title="Pillow mode - soft-body deformation"></button>
+        <button id="swirl-btn" class="icon-btn" data-icon="swirl" aria-pressed="false" title="Swirl mode - curl-of-noise warp"></button>
       </div>
 
       <div class="field">
@@ -84,10 +85,37 @@
         <input id="pillow-stiffness" type="range" min="10" max="200" value="100" />
         <span id="pillow-stiffness-readout" class="readout">1.00</span>
       </label>
-      <button id="pillow-reset-btn" class="icon-btn" title="Reset to rest positions">Reset</button>
+      <label class="sim-field sim-toggle">
+        <input id="pillow-wireframe" type="checkbox" checked />
+        <span>Wireframe</span>
+      </label>
       <button id="pillow-bake-btn" class="text-btn primary" title="Bake deformed mesh into the mask">
         <span>Bake</span>
       </button>
+      <button id="pillow-reset-btn" class="icon-btn danger" title="Reset to rest positions">Reset</button>
+    </div>
+
+    <div id="swirl-toolbar" class="sim-toolbar" role="group" aria-label="Swirl controls" hidden>
+      <label class="sim-field">
+        <span>Noise scale</span>
+        <input id="swirl-scale" type="range" min="10" max="400" value="120" />
+        <span id="swirl-scale-readout" class="readout">120</span>
+      </label>
+      <label class="sim-field">
+        <span>Strength</span>
+        <input id="swirl-strength" type="range" min="0" max="200" value="40" />
+        <span id="swirl-strength-readout" class="readout">40</span>
+      </label>
+      <label class="sim-field">
+        <span>Seed</span>
+        <input id="swirl-seed" type="range" min="0" max="999" value="42" />
+        <span id="swirl-seed-readout" class="readout">42</span>
+      </label>
+      <button id="swirl-reseed-btn" class="icon-btn" title="Pick a new random seed">Roll</button>
+      <button id="swirl-bake-btn" class="text-btn primary" title="Bake the warped mask into the document">
+        <span>Bake</span>
+      </button>
+      <button id="swirl-reset-btn" class="icon-btn danger" title="Reset scale / strength / seed to defaults">Reset</button>
     </div>
 
     <main id="stage" class="stage">

@@ -122,6 +122,17 @@ body { display: flex; flex-direction: column; }
 .icon-btn:disabled { opacity: 0.35; cursor: default; }
 .icon-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .icon-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+/* Destructive / "discard your work" actions (Reset). Warning-red so it
+ * doesn't get mis-clicked instead of Bake. */
+.icon-btn.danger {
+  background: hsl(0 70% 42%);
+  border-color: hsl(0 70% 42%);
+  color: hsl(0 0% 98%);
+}
+.icon-btn.danger:hover:not(:disabled) {
+  background: hsl(0 70% 50%);
+  border-color: hsl(0 70% 50%);
+}
 
 /* Text + optional icon button. Used for the Export action so it reads
  * as a deliberate "deliverable" command rather than just an icon. */
@@ -679,10 +690,13 @@ body.mode-swirl  #size-popover { display: none !important; }
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .sim-field input[type="range"] { width: 100px; accent-color: var(--accent); }
+.sim-toggle { gap: 4px; }
+.sim-toggle input[type="checkbox"] { accent-color: var(--accent); }
 .sim-field .readout { color: var(--topbar-fg); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
 .sim-toolbar .icon-btn { width: auto; padding: 0 12px; font-size: 12px; }
 
 body.mode-pillow #pillow-toolbar { display: flex; }
+body.mode-swirl #swirl-toolbar { display: flex; }
 
 /* Brush size preview rendered as vector so strokes stay 1 screen-pixel
  * crisp at any zoom level (the canvases use image-rendering: pixelated,

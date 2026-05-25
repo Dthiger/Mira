@@ -28,6 +28,7 @@ import { refreshUsedIdsStatus, updateStatusbar } from './ui/statusBar.ts';
 import { initToolManager } from './toolManager.ts';
 import { initSimManager } from './simManager.ts';
 import { initPillowToolbar } from './ui/pillowToolbar.ts';
+import { initSwirlToolbar } from './ui/swirlToolbar.ts';
 import { initEvents, onLassoStateChange } from './events.ts';
 
 import { computeDistanceFill, encodeDistanceFillPng } from './distfill.ts';
@@ -42,6 +43,104 @@ document.querySelectorAll<HTMLElement>('[data-icon]').forEach((el) => {
 });
 
 renderer.renderAll();
+
+// DEBUG: ?autopaint paints 3 test circles into doc.pixels so headless
+// screenshots / quick repro can exercise pillow mode without a human
+// drawing first.
+{
+  const qp = new URLSearchParams(location.search);
+  if (qp.has('autopaint')) {
+    const mode = qp.get('autopaint');
+    // baketouch: two same-color circles painted with a clean gap (so they
+    // become TWO bodies in sim), then programmatically shifted into contact
+    // before bake. Exercises the bake's same-palette gap rule.
+    const circles: Array<{ x: number; y: number; r: number; palIdx: number }> =
+      mode === 'baketouch'
+        ? [
+            { x: 350, y: 500, r: 130, palIdx: 7 },
+            { x: 690, y: 500, r: 130, palIdx: 7 },
+          ]
+        : [
+            { x: 300, y: 350, r: 90, palIdx: 0 },
+            { x: 600, y: 350, r: 110, palIdx: 5 },
+            { x: 450, y: 650, r: 100, palIdx: 12 },
+          ];
+    for (const c of circles) {
+      const r2 = c.r * c.r;
+      for (let y = Math.max(0, c.y - c.r); y < Math.min(doc.height, c.y + c.r); y++) {
+        for (let x = Math.max(0, c.x - c.r); x < Math.min(doc.width, c.x + c.r); x++) {
+          const ddx = x - c.x, ddy = y - c.y;
+          if (ddx * ddx + ddy * ddy <= r2) doc.setIndex(x, y, c.palIdx);
+        }
+      }
+    }
+    renderer.renderAll();
+    console.log('[autopaint] painted 3 circles');
+
+    if (mode === 'pillow' || mode === 'bake' || mode === 'baketouch' || mode === 'swirl') {
+      // Click the matching sim button after layout settles so simManager
+      // runs through its normal path.
+      setTimeout(() => {
+        const btnId = mode === 'swirl' ? 'swirl-btn' : 'pillow-btn';
+        const btn = document.getElementById(btnId) as HTMLButtonElement | null;
+        btn?.click();
+        console.log(`[autopaint] ${btnId} clicked`);
+        if (mode === 'swirl') {
+          // Push scale up + medium strength to verify the scale
+          // normalization keeps the warp visible at large noise scales.
+          setTimeout(() => {
+            const scale = document.getElementById('swirl-scale') as HTMLInputElement;
+            scale.value = '350';
+            scale.dispatchEvent(new Event('input', { bubbles: true }));
+            const sl = document.getElementById('swirl-strength') as HTMLInputElement;
+            sl.value = '100';
+            sl.dispatchEvent(new Event('input', { bubbles: true }));
+            console.log('[autopaint] swirl scale=350 strength=100');
+          }, 100);
+        }
+        if (mode === 'bake' || mode === 'baketouch') {
+          setTimeout(() => {
+            if (mode === 'baketouch') {
+              // Shift body 1's verts left so its polar polygon overlaps
+              // body 0's — simulating "two same-color bodies pressed
+              // together by drag" without needing real drag automation.
+              import('./sim/pillow/index.ts').then(({ getPillowWorld }) => {
+                const world = getPillowWorld();
+                if (world && world.bodies.length >= 2) {
+                  const shift = -200; // x-shift for body 1 to overlap body 0
+                  for (const v of world.bodies[1].vertices) {
+                    v.px += shift; v.qx += shift; v.rx += shift;
+                  }
+                  console.log('[baketouch] shifted body 1 by', shift);
+                }
+                const bake = document.getElementById('pillow-bake-btn') as HTMLButtonElement | null;
+                bake?.click();
+                console.log('[autopaint] bake button clicked');
+                import('./ccl.ts').then(({ connectedComponents }) => {
+                  const r = connectedComponents(doc);
+                  console.log('[baketouch] post-bake regionCount =', r.regionCount);
+                });
+              });
+            } else {
+              const bake = document.getElementById('pillow-bake-btn') as HTMLButtonElement | null;
+              bake?.click();
+              console.log('[autopaint] bake button clicked');
+            }
+          }, 200);
+        } else {
+          setTimeout(() => {
+            const dbg = (window as unknown as { __pillowDebug?: Record<string, unknown> }).__pillowDebug;
+            const el = document.createElement('pre');
+            el.id = 'autopaint-debug';
+            el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,255,0,0.95);color:#000;padding:6px 12px;font:11px monospace;white-space:pre-wrap;max-width:90vw;';
+            el.textContent = `__pillowDebug = ${JSON.stringify(dbg, null, 2)}`;
+            document.body.appendChild(el);
+          }, 200);
+        }
+      }, 50);
+    }
+  }
+}
 
 // The viewport's transform-changed callbacks need to refresh the cursor
 // glyph (its screen-space position depends on scale/tx/ty) and the lasso
@@ -58,6 +157,7 @@ initSizePopover();
 initToolManager();
 initSimManager();
 initPillowToolbar();
+initSwirlToolbar();
 initEvents();
 
 fitToView();
