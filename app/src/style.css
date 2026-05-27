@@ -552,20 +552,26 @@ body { display: flex; flex-direction: column; }
  * canvas is dimmed so the user can still see context but knows it's not
  * being edited. */
 body.mode-pillow #sim-canvas,
-body.mode-swirl #sim-canvas { display: block; }
+body.mode-swirl #sim-canvas,
+body.mode-flow #sim-canvas { display: block; }
 body.mode-pillow #paint-canvas,
-body.mode-swirl #paint-canvas { opacity: 0.15; }
+body.mode-swirl #paint-canvas,
+body.mode-flow #paint-canvas { opacity: 0.15; }
 
 /* Hide paint toolbar groups while in a sim mode. The mode-specific
  * floating toolbar (#pillow-toolbar) takes over the controls slot. */
 body.mode-pillow .tool-group[role="radiogroup"],
 body.mode-swirl  .tool-group[role="radiogroup"],
+body.mode-flow   .tool-group[role="radiogroup"],
 body.mode-pillow #color-picker,
 body.mode-swirl  #color-picker,
+body.mode-flow   #color-picker,
 body.mode-pillow .field:has(#color-picker),
-body.mode-swirl  .field:has(#color-picker) { display: none; }
+body.mode-swirl  .field:has(#color-picker),
+body.mode-flow   .field:has(#color-picker) { display: none; }
 body.mode-pillow #size-popover,
-body.mode-swirl  #size-popover { display: none !important; }
+body.mode-swirl  #size-popover,
+body.mode-flow   #size-popover { display: none !important; }
 
 /* OS cursor is hidden over the canvas; the +/- glyph below stands in.
  * That way the indicator never vanishes mid-stroke (some browsers/drivers
@@ -697,6 +703,31 @@ body.mode-swirl  #size-popover { display: none !important; }
 
 body.mode-pillow #pillow-toolbar { display: flex; }
 body.mode-swirl #swirl-toolbar { display: flex; }
+body.mode-flow #flow-toolbar { display: flex; }
+body.mode-flow #flow-sim-bar { display: flex; }
+
+/* Sim controls that sit at the bottom of the viewport, above the status
+ * bar. Same look as the top sim-toolbar; just anchored on the other
+ * edge so a wide top toolbar doesn't blow past the screen. */
+.sim-bottom-bar {
+  position: fixed;
+  bottom: 48px; /* clear of the status bar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--topbar-bg);
+  border: 1px solid var(--topbar-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+  font-size: 12px;
+}
+.sim-bottom-bar[hidden] { display: none; }
+.sim-bottom-bar .icon-btn { width: auto; padding: 0 12px; font-size: 12px; }
 
 /* Brush size preview rendered as vector so strokes stay 1 screen-pixel
  * crisp at any zoom level (the canvases use image-rendering: pixelated,

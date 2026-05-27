@@ -19,6 +19,11 @@ import {
   dragEnd as pillowDragEnd,
   pillowUndo,
 } from './sim/pillow/index.ts';
+import {
+  flowPointerDown,
+  flowPointerMove,
+  flowPointerUp,
+} from './sim/flow/index.ts';
 import { setBrushSize } from './ui/sizePopover.ts';
 import { cyclePaletteColor } from './ui/colorPicker.ts';
 import { updateStatusbar, refreshUsedIdsStatus } from './ui/statusBar.ts';
@@ -82,6 +87,11 @@ export function initEvents(): void {
         pillowDragBegin(dx, dy);
         return;
       }
+      if (state.mode === 'flow') {
+        state.dragMode = 'paint';
+        flowPointerDown(dx, dy);
+        return;
+      }
       if (isBrushShaped(state.activeTool)) {
         history.commit();
         state.dragMode = 'paint';
@@ -120,6 +130,11 @@ export function initEvents(): void {
       updateCursorGlyph(); // sim modes still need the +/- glyph to follow the cursor
       return;
     }
+    if (state.mode === 'flow') {
+      if (state.dragMode === 'paint') flowPointerMove(dx, dy);
+      updateCursorGlyph();
+      return;
+    }
     if (state.dragMode === 'paint') brush.move(dx, dy);
     else if (state.dragMode === 'lasso') lasso.pointerMove(dx, dy);
     redrawOverlay();
@@ -131,6 +146,8 @@ export function initEvents(): void {
     }
     if (state.mode === 'pillow' && state.dragMode === 'paint') {
       pillowDragEnd();
+    } else if (state.mode === 'flow' && state.dragMode === 'paint') {
+      flowPointerUp();
     } else if (state.dragMode === 'paint') {
       brush.end();
       refreshUsedIdsStatus();

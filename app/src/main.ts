@@ -29,6 +29,7 @@ import { initToolManager } from './toolManager.ts';
 import { initSimManager } from './simManager.ts';
 import { initPillowToolbar } from './ui/pillowToolbar.ts';
 import { initSwirlToolbar } from './ui/swirlToolbar.ts';
+import { initFlowToolbar } from './ui/flowToolbar.ts';
 import { initEvents, onLassoStateChange } from './events.ts';
 
 import { computeDistanceFill, encodeDistanceFillPng } from './distfill.ts';
@@ -77,11 +78,11 @@ renderer.renderAll();
     renderer.renderAll();
     console.log('[autopaint] painted 3 circles');
 
-    if (mode === 'pillow' || mode === 'bake' || mode === 'baketouch' || mode === 'swirl') {
+    if (mode === 'pillow' || mode === 'bake' || mode === 'baketouch' || mode === 'swirl' || mode === 'flow') {
       // Click the matching sim button after layout settles so simManager
       // runs through its normal path.
       setTimeout(() => {
-        const btnId = mode === 'swirl' ? 'swirl-btn' : 'pillow-btn';
+        const btnId = mode === 'swirl' ? 'swirl-btn' : mode === 'flow' ? 'flow-btn' : 'pillow-btn';
         const btn = document.getElementById(btnId) as HTMLButtonElement | null;
         btn?.click();
         console.log(`[autopaint] ${btnId} clicked`);
@@ -97,6 +98,33 @@ renderer.renderAll();
             sl.dispatchEvent(new Event('input', { bubbles: true }));
             console.log('[autopaint] swirl scale=350 strength=100');
           }, 100);
+        }
+        if (mode === 'flow') {
+          // Press Step 40 times so the headless screenshot shows the
+          // post-sim velocity field with real vortices, not the static
+          // A+B seed. Then trigger Export PNG and inspect the bytes
+          // to verify the 16-bit encoder produced a valid PNG.
+          setTimeout(() => {
+            const stepBtn = document.getElementById('flow-sim-step-btn') as HTMLButtonElement;
+            for (let i = 0; i < 40; i++) stepBtn.click();
+            console.log('[autopaint] flow sim stepped 40');
+            void (async () => {
+              const mod = await import('./sim/flow/index.ts');
+              const blob = await mod.exportFlowmap();
+              const buf = new Uint8Array(await blob.arrayBuffer());
+              const sigOk = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+              // IHDR is at byte 8 (after PNG signature). 4-byte length, "IHDR",
+              // then payload starting at byte 16.
+              const bitDepth = buf[16 + 8];
+              const colorType = buf[16 + 9];
+              console.log('[autopaint] flow PNG export: ' + JSON.stringify({
+                bytes: buf.length,
+                sigOk,
+                bitDepth,
+                colorType,
+              }));
+            })();
+          }, 200);
         }
         if (mode === 'bake' || mode === 'baketouch') {
           setTimeout(() => {
@@ -158,6 +186,7 @@ initToolManager();
 initSimManager();
 initPillowToolbar();
 initSwirlToolbar();
+initFlowToolbar();
 initEvents();
 
 fitToView();

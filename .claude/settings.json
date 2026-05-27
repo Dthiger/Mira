@@ -88,7 +88,31 @@
       "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/swirl-noborder.png)",
       "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=10000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/swirl-noborder.png http://localhost:5173/?autopaint=swirl)",
       "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/swirl-fast.png)",
-      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=9000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/swirl-fast.png http://localhost:5173/?autopaint=swirl)"
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=9000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/swirl-fast.png http://localhost:5173/?autopaint=swirl)",
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['path']\\) for t in d['tree'] if t['type']=='blob']\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['path'], t.get\\('size',''\\)\\) for t in d['tree'] if t['type']=='blob' and \\('src/' in t['path'] or t['path'].startswith\\('src'\\)\\)]\")",
+      "Bash(python -c \"import sys,json,base64; d=json.load\\(sys.stdin\\); print\\(base64.b64decode\\(d['content']\\).decode\\('utf-8',errors='replace'\\)\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=9000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-jfa.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=12000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-jfa.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-blur.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=12000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-blur.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-sim.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=20000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-sim.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-bg-sim.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1280,1024 --virtual-time-budget=20000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-bg-sim.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-split.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1600,1024 --virtual-time-budget=20000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-split.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-forced.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1600,1024 --virtual-time-budget=20000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-forced.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-walls.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1600,1024 --virtual-time-budget=20000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-walls.png http://localhost:5173/?autopaint=flow)",
+      "Bash(rm -f /c/Users/dthig/AppData/Local/Temp/mira-debug/flow-wind.png)",
+      "Bash('/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe' --headless=new --disable-gpu --hide-scrollbars --window-size=1600,1024 --virtual-time-budget=20000 --screenshot=/c/Users/dthig/AppData/Local/Temp/mira-debug/flow-wind.png http://localhost:5173/?autopaint=flow)"
     ]
   }
 }

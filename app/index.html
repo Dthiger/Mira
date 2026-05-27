@@ -42,6 +42,7 @@
       <div class="tool-group" id="mode-group" aria-label="Sim modes">
         <button id="pillow-btn" class="icon-btn" data-icon="pillow" aria-pressed="false" title="Pillow mode - soft-body deformation"></button>
         <button id="swirl-btn" class="icon-btn" data-icon="swirl" aria-pressed="false" title="Swirl mode - curl-of-noise warp"></button>
+        <button id="flow-btn" class="icon-btn" data-icon="flow" aria-pressed="false" title="Flowmap mode - per-region vector field, exportable for Substance"></button>
       </div>
 
       <div class="field">
@@ -116,6 +117,75 @@
         <span>Bake</span>
       </button>
       <button id="swirl-reset-btn" class="icon-btn danger" title="Reset scale / strength / seed to defaults">Reset</button>
+    </div>
+
+    <div id="flow-toolbar" class="sim-toolbar" role="group" aria-label="Flowmap controls" hidden>
+      <label class="sim-field">
+        <span>Scale</span>
+        <input id="flow-scale" type="range" min="20" max="400" value="140" />
+        <span id="flow-scale-readout" class="readout">140</span>
+      </label>
+      <label class="sim-field">
+        <span>Strength</span>
+        <input id="flow-strength" type="range" min="0" max="200" value="80" />
+        <span id="flow-strength-readout" class="readout">80</span>
+      </label>
+      <label class="sim-field">
+        <span>Tangent</span>
+        <input id="flow-tangent" type="range" min="0" max="100" value="30" />
+        <span id="flow-tangent-readout" class="readout">0.30</span>
+      </label>
+      <label class="sim-field">
+        <span>Boundary falloff</span>
+        <input id="flow-falloff" type="range" min="0" max="200" value="32" />
+        <span id="flow-falloff-readout" class="readout">32</span>
+      </label>
+      <label class="sim-field">
+        <span>Seed</span>
+        <input id="flow-seed" type="range" min="0" max="999" value="42" />
+        <span id="flow-seed-readout" class="readout">42</span>
+      </label>
+      <label class="sim-field sim-toggle">
+        <input id="flow-flipy" type="checkbox" />
+        <span>Flip Y</span>
+      </label>
+      <button id="flow-reseed-btn" class="icon-btn" title="Pick a new random seed">Roll</button>
+      <button id="flow-export-btn" class="text-btn primary" title="Download the flowmap as a Substance-compatible PNG">
+        <span>Export PNG</span>
+      </button>
+      <button id="flow-reset-btn" class="icon-btn danger" title="Reset all flow params to defaults">Reset</button>
+    </div>
+
+    <div id="flow-sim-bar" class="sim-bottom-bar" role="group" aria-label="Fluid sim controls" hidden>
+      <button id="flow-sim-play-btn" class="icon-btn primary" title="Play / pause the continuous fluid sim">▶ Play</button>
+      <button id="flow-sim-step-btn" class="icon-btn" title="Advance the fluid sim by 1 step">Step</button>
+      <label class="sim-field">
+        <span>Speed</span>
+        <input id="flow-sim-speed" type="range" min="1" max="8" value="1" />
+        <span id="flow-sim-speed-readout" class="readout">1×</span>
+      </label>
+      <label class="sim-field">
+        <span>Wind dir</span>
+        <input id="flow-push-angle" type="range" min="0" max="359" value="0" />
+        <span id="flow-push-angle-readout" class="readout">0°</span>
+      </label>
+      <label class="sim-field">
+        <span>Wind force</span>
+        <input id="flow-push-strength" type="range" min="0" max="100" value="20" />
+        <span id="flow-push-strength-readout" class="readout">20</span>
+      </label>
+      <label class="sim-field">
+        <span>Turbulence</span>
+        <input id="flow-turbulence" type="range" min="0" max="100" value="25" />
+        <span id="flow-turbulence-readout" class="readout">25</span>
+      </label>
+      <label class="sim-field">
+        <span>Brush</span>
+        <input id="flow-brush-radius" type="range" min="10" max="200" value="60" />
+        <span id="flow-brush-radius-readout" class="readout">60</span>
+      </label>
+      <span id="flow-sim-steps-counter" class="readout" title="Total sim steps run since last reset">0 steps</span>
+      <button id="flow-sim-reset-btn" class="icon-btn danger" title="Drop the sim, return to the static A+B field">Stop sim</button>
     </div>
 
     <main id="stage" class="stage">

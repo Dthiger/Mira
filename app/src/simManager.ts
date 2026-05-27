@@ -7,11 +7,14 @@
  */
 
 import { state, doc } from './state.ts';
-import { pillowBtn, swirlBtn, simCanvas } from './dom.ts';
+import { pillowBtn, swirlBtn, flowBtn, simCanvas } from './dom.ts';
 import { enterPillow, exitPillow, pillowIsActive } from './sim/pillow/index.ts';
 import { enterSwirl, exitSwirl, swirlIsActive } from './sim/swirl/index.ts';
+import { enterFlow, exitFlow, flowIsActive } from './sim/flow/index.ts';
 
-export function enterMode(mode: 'pillow' | 'swirl'): void {
+type SimMode = 'pillow' | 'swirl' | 'flow';
+
+export function enterMode(mode: SimMode): void {
   if (state.mode === mode) return;
   // Always exit any current sim mode before entering a new one.
   exitCurrentMode();
@@ -21,6 +24,9 @@ export function enterMode(mode: 'pillow' | 'swirl'): void {
   } else if (mode === 'swirl') {
     enterSwirl(doc, simCanvas);
     swirlBtn.setAttribute('aria-pressed', 'true');
+  } else if (mode === 'flow') {
+    enterFlow(doc, simCanvas);
+    flowBtn.setAttribute('aria-pressed', 'true');
   }
   state.mode = mode;
   document.body.classList.add(`mode-${mode}`);
@@ -34,9 +40,11 @@ export function exitToPaint(): void {
 function exitCurrentMode(): void {
   if (pillowIsActive()) exitPillow();
   if (swirlIsActive()) exitSwirl();
+  if (flowIsActive()) exitFlow();
   pillowBtn.setAttribute('aria-pressed', 'false');
   swirlBtn.setAttribute('aria-pressed', 'false');
-  document.body.classList.remove('mode-pillow', 'mode-swirl');
+  flowBtn.setAttribute('aria-pressed', 'false');
+  document.body.classList.remove('mode-pillow', 'mode-swirl', 'mode-flow');
 }
 
 export function initSimManager(): void {
@@ -47,5 +55,9 @@ export function initSimManager(): void {
   swirlBtn.addEventListener('click', () => {
     if (state.mode === 'swirl') exitToPaint();
     else enterMode('swirl');
+  });
+  flowBtn.addEventListener('click', () => {
+    if (state.mode === 'flow') exitToPaint();
+    else enterMode('flow');
   });
 }
