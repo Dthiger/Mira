@@ -43,6 +43,7 @@
         <button id="pillow-btn" class="icon-btn" data-icon="pillow" aria-pressed="false" title="Pillow mode - soft-body deformation"></button>
         <button id="swirl-btn" class="icon-btn" data-icon="swirl" aria-pressed="false" title="Swirl mode - curl-of-noise warp"></button>
         <button id="flow-btn" class="icon-btn" data-icon="flow" aria-pressed="false" title="Flowmap mode - per-region vector field, exportable for Substance"></button>
+        <button id="wrap-btn" class="icon-btn" data-icon="wrap" aria-pressed="false" title="Wrap UV mode - per-shape contour-band UV map for Substance"></button>
       </div>
 
       <div class="field">
@@ -149,11 +150,40 @@
         <input id="flow-flipy" type="checkbox" />
         <span>Flip Y</span>
       </label>
+      <label class="sim-field sim-toggle">
+        <input id="flow-subtract-mean" type="checkbox" />
+        <span>Deviation from mean</span>
+      </label>
       <button id="flow-reseed-btn" class="icon-btn" title="Pick a new random seed">Roll</button>
-      <button id="flow-export-btn" class="text-btn primary" title="Download the flowmap as a Substance-compatible PNG">
+      <button id="flow-export-btn" class="text-btn primary" title="Download the fluid-sim flowmap as a 16-bit Substance-compatible PNG">
         <span>Export PNG</span>
       </button>
       <button id="flow-reset-btn" class="icon-btn danger" title="Reset all flow params to defaults">Reset</button>
+    </div>
+
+    <div id="wrap-toolbar" class="sim-toolbar" role="group" aria-label="Wrap UV controls" hidden>
+      <label class="sim-field">
+        <span>Band thickness</span>
+        <input id="wrap-band" type="range" min="4" max="200" value="24" />
+        <span id="wrap-band-readout" class="readout">24</span>
+      </label>
+      <label class="sim-field">
+        <span>Min shape size</span>
+        <input id="wrap-min" type="range" min="50" max="10000" value="200" />
+        <span id="wrap-min-readout" class="readout">200</span>
+      </label>
+      <label class="sim-field sim-toggle">
+        <input id="wrap-inner" type="checkbox" checked />
+        <span>Inner band</span>
+      </label>
+      <label class="sim-field sim-toggle">
+        <input id="wrap-flipy" type="checkbox" />
+        <span>Flip Y</span>
+      </label>
+      <button id="wrap-export-btn" class="text-btn primary" title="Export per-shape contour-band UV (U along boundary, V across band thickness) as 16-bit RG PNG">
+        <span>Export wrap UV</span>
+      </button>
+      <button id="wrap-reset-btn" class="icon-btn danger" title="Reset wrap params to defaults">Reset</button>
     </div>
 
     <div id="flow-sim-bar" class="sim-bottom-bar" role="group" aria-label="Fluid sim controls" hidden>

@@ -42,6 +42,7 @@ export const redoBtn = $<HTMLButtonElement>('#redo-btn');
 export const pillowBtn = $<HTMLButtonElement>('#pillow-btn');
 export const swirlBtn = $<HTMLButtonElement>('#swirl-btn');
 export const flowBtn = $<HTMLButtonElement>('#flow-btn');
+export const wrapBtn = $<HTMLButtonElement>('#wrap-btn');
 
 export const helpBtn = $<HTMLButtonElement>('#help-btn');
 export const helpDialog = $<HTMLDialogElement>('#help-dialog');

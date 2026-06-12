@@ -19,7 +19,8 @@ export type IconName =
   | 'help'
   | 'pillow'
   | 'swirl'
-  | 'flow';
+  | 'flow'
+  | 'wrap';
 
 const PATHS: Record<IconName, string> = {
   // Special-cased in icon() to overlay + and - badges; empty here.
@@ -64,6 +65,9 @@ const PATHS: Record<IconName, string> = {
   // "flow" - parallel wavy lines suggesting a vector field / flowmap.
   flow:
     'M3 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0v2c-2-2-4-2-6 0s-4 2-6 0-4-2-6 0V7zm0 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0v2c-2-2-4-2-6 0s-4 2-6 0-4-2-6 0v-2z',
+  // "wrap" - concentric rings suggesting a halo / contour band.
+  wrap:
+    'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
 };
 
 export function icon(name: IconName, size = 18): string {

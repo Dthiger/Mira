@@ -38,7 +38,7 @@ const DEFAULTS: FlowParams = {
 const PUSH_SCALE = 0.001;
 
 export const params: FlowParams = { ...DEFAULTS };
-export const exportOptions: FlowEncodeOptions = { flipY: false };
+export const exportOptions: FlowEncodeOptions = { flipY: false, subtractMean: false };
 
 let docRef: MaskDocument | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -113,7 +113,7 @@ export function recompute(): void {
   } else {
     displayField = staticField;
   }
-  renderFlow(ctx, displayField);
+  renderFlow(ctx, displayField, exportOptions);
   notifyPlayback();
 }
 
@@ -140,6 +140,13 @@ export function setPush(angleDeg: number, strength: number): void {
 export function setTurbulenceLevel(slider: number): void {
   const forceMag = (slider / 100) * 0.2;
   if (sim) setTurbulence(sim, forceMag);
+}
+
+/** Re-render the current displayed field with whatever's in
+ *  `exportOptions` (flipY, subtractMean). No sim step, no re-seed —
+ *  just a repaint with the new encoding settings. */
+export function redrawPreview(): void {
+  if (active && ctx && displayField) renderFlow(ctx, displayField, exportOptions);
 }
 
 // ---------- Mouse-drag force injection ----------
@@ -191,7 +198,7 @@ export function flowPointerMove(docX: number, docY: number): void {
   if (!playing) {
     fluidStep(sim, 1);
     displayField = assembleFluidField(sim, cache.regions, staticField);
-    renderFlow(ctx, displayField);
+    renderFlow(ctx, displayField, exportOptions);
     notifyPlayback();
   }
 }
@@ -230,7 +237,7 @@ export function simStep(steps: number): void {
   }
   fluidStep(sim, steps);
   displayField = assembleFluidField(sim, cache.regions, staticField);
-  renderFlow(ctx, displayField);
+  renderFlow(ctx, displayField, exportOptions);
   notifyPlayback();
 }
 
@@ -240,7 +247,7 @@ export function simReset(): void {
   sim = null;
   if (staticField && ctx) {
     displayField = staticField;
-    renderFlow(ctx, displayField);
+    renderFlow(ctx, displayField, exportOptions);
   }
   notifyPlayback();
 }
@@ -270,3 +277,4 @@ export async function exportFlowmap(): Promise<Blob> {
   if (!displayField) throw new Error('No flow field to export — enter flow mode first');
   return encodeFlowmapPng(displayField, exportOptions);
 }
+

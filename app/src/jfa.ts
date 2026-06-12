@@ -33,11 +33,7 @@ export function jumpFlood(
     }
   }
 
-  let step = 1;
-  while (step < Math.max(w, h)) step <<= 1;
-  step >>= 1;
-
-  while (step >= 1) {
+  const pass = (step: number): void => {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
@@ -76,8 +72,23 @@ export function jumpFlood(
         distSq[i] = bestD;
       }
     }
+  };
+
+  let step = 1;
+  while (step < Math.max(w, h)) step <<= 1;
+  step >>= 1;
+
+  while (step >= 1) {
+    pass(step);
     step >>= 1;
   }
+
+  // "JFA+2" refinement: plain JFA is approximate and its mis-assignments
+  // cluster along equidistant (Voronoi-boundary) lines, which shows up as
+  // blocky notches where two seeds' territories meet. Two extra passes at
+  // small steps clean up nearly all of them for ~2/log2(N) extra cost.
+  pass(2);
+  pass(1);
 
   return { nearest, distSq };
 }

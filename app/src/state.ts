@@ -28,7 +28,7 @@ export type DragMode = null | 'paint' | 'lasso' | 'pan' | 'size';
 
 /** App-level mode. Paint = normal mask editing; pillow/swirl are sim modes
  *  that hide the paint toolbar and present their own controls. */
-export type AppMode = 'paint' | 'pillow' | 'swirl' | 'flow';
+export type AppMode = 'paint' | 'pillow' | 'swirl' | 'flow' | 'wrap';
 
 /** Tools that share the brush engine - and therefore the brush size, the
  *  brush-radius preview, and the floating size popover. */

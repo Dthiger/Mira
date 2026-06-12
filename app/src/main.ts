@@ -30,6 +30,7 @@ import { initSimManager } from './simManager.ts';
 import { initPillowToolbar } from './ui/pillowToolbar.ts';
 import { initSwirlToolbar } from './ui/swirlToolbar.ts';
 import { initFlowToolbar } from './ui/flowToolbar.ts';
+import { initWrapToolbar } from './ui/wrapToolbar.ts';
 import { initEvents, onLassoStateChange } from './events.ts';
 
 import { computeDistanceFill, encodeDistanceFillPng } from './distfill.ts';
@@ -187,6 +188,7 @@ initSimManager();
 initPillowToolbar();
 initSwirlToolbar();
 initFlowToolbar();
+initWrapToolbar();
 initEvents();
 
 fitToView();

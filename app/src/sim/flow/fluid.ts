@@ -370,10 +370,17 @@ function solvePressure(sim: FluidSimState): void {
       for (let x = 1; x < W - 1; x++) {
         const i = y * W + x;
         if (!fluidMask[i]) { dst[i] = 0; continue; }
-        const pR = fluidMask[i + 1] ? src[i + 1] : 0;
-        const pL = fluidMask[i - 1] ? src[i - 1] : 0;
-        const pD = fluidMask[i + W] ? src[i + W] : 0;
-        const pU = fluidMask[i - W] ? src[i - W] : 0;
+        // Solid-wall Neumann BC: mirror the current cell's pressure at
+        // walls so ∂p/∂n = 0 at the wall surface. This is what makes
+        // fluid slide TANGENTIALLY along walls; using Dirichlet p=0
+        // (the obvious-but-wrong choice) makes walls act as pressure
+        // sinks and the flow weakly drifts into them instead of
+        // wrapping around.
+        const self = src[i];
+        const pR = fluidMask[i + 1] ? src[i + 1] : self;
+        const pL = fluidMask[i - 1] ? src[i - 1] : self;
+        const pD = fluidMask[i + W] ? src[i + W] : self;
+        const pU = fluidMask[i - W] ? src[i - W] : self;
         dst[i] = (pR + pL + pD + pU - divergence[i]) * 0.25;
       }
     }
@@ -388,10 +395,15 @@ function subtractPressureGradient(sim: FluidSimState): void {
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
       if (!fluidMask[i]) { velX[i] = 0; velY[i] = 0; continue; }
-      const pR = fluidMask[i + 1] ? pressureA[i + 1] : 0;
-      const pL = fluidMask[i - 1] ? pressureA[i - 1] : 0;
-      const pD = fluidMask[i + W] ? pressureA[i + W] : 0;
-      const pU = fluidMask[i - W] ? pressureA[i - W] : 0;
+      // Same Neumann mirror as in the pressure solve — otherwise the
+      // gradient direction near walls disagrees with the pressure that
+      // was solved with mirror BC, and you get spurious normal-to-wall
+      // velocity components.
+      const self = pressureA[i];
+      const pR = fluidMask[i + 1] ? pressureA[i + 1] : self;
+      const pL = fluidMask[i - 1] ? pressureA[i - 1] : self;
+      const pD = fluidMask[i + W] ? pressureA[i + W] : self;
+      const pU = fluidMask[i - W] ? pressureA[i - W] : self;
       velX[i] -= (pR - pL) * 0.5;
       velY[i] -= (pD - pU) * 0.5;
     }

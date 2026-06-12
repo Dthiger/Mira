@@ -22,6 +22,14 @@ import type { FlowField } from './types.ts';
 export interface FlowEncodeOptions {
   /** Flip Y for UV-down convention (Substance / OpenGL UV). */
   flipY: boolean;
+  /** Subtract the field's mean velocity before normalizing. Useful when
+   *  a strong wind dominates the velocity field and the interesting
+   *  deflections around shapes get crushed into a tiny fraction of the
+   *  encoded range. With this on, the exported map captures the
+   *  variation from the bulk flow — "where does the fluid go differently
+   *  than the average?" — which surfaces the river-lane structure that
+   *  was previously hidden behind the wind bias. */
+  subtractMean: boolean;
 }
 
 export async function encodeFlowmapPng(
@@ -33,10 +41,25 @@ export async function encodeFlowmapPng(
   const fx = field.fx;
   const fy = field.fy;
 
-  // Normalize so the longest vector in the field maps to ±1.
+  // Optionally subtract the field's mean before normalizing — captures
+  // deviation from the bulk (wind) flow.
+  let meanX = 0, meanY = 0;
+  if (opts.subtractMean) {
+    let count = 0;
+    for (let i = 0; i < fx.length; i++) {
+      if (fx[i] === 0 && fy[i] === 0) continue; // walls
+      meanX += fx[i]; meanY += fy[i]; count++;
+    }
+    if (count > 0) { meanX /= count; meanY /= count; }
+  }
+
+  // Normalize so the longest (post-mean-subtraction) vector maps to ±1.
   let maxMag2 = 0;
   for (let i = 0; i < fx.length; i++) {
-    const m = fx[i] * fx[i] + fy[i] * fy[i];
+    if (fx[i] === 0 && fy[i] === 0) continue; // walls stay at zero
+    const dx = fx[i] - meanX;
+    const dy = fy[i] - meanY;
+    const m = dx * dx + dy * dy;
     if (m > maxMag2) maxMag2 = m;
   }
   const invMax = maxMag2 > 0 ? 1 / Math.sqrt(maxMag2) : 0;
@@ -52,8 +75,13 @@ export async function encodeFlowmapPng(
     raw[rowOff] = 0; // filter type = None
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
-      const nx = fx[i] * invMax;            // [-1, 1]
-      const ny = fy[i] * invMax * ySign;
+      // Wall pixels (where fx and fy are both exactly 0) encode as
+      // mid-gray regardless of options — they represent "no flow".
+      const isWall = fx[i] === 0 && fy[i] === 0;
+      const dx = isWall ? 0 : (fx[i] - meanX) * invMax;            // [-1, 1]
+      const dy = isWall ? 0 : (fy[i] - meanY) * invMax * ySign;
+      const nx = dx;
+      const ny = dy;
       const r = clamp16((nx * 0.5 + 0.5) * 65535);
       const g = clamp16((ny * 0.5 + 0.5) * 65535);
       const off = rowOff + 1 + x * bytesPerPixel;
@@ -66,24 +94,83 @@ export async function encodeFlowmapPng(
     }
   }
 
-  // Compress (zlib-wrapped deflate, which is what PNG IDAT expects).
   const compressed = await deflate(raw);
+  return assemblePng(w, h, compressed);
+}
 
-  // Assemble PNG: signature + IHDR + IDAT + IEND.
+function clamp16(v: number): number {
+  if (v < 0) return 0;
+  if (v > 65535) return 65535;
+  return Math.round(v);
+}
+
+/** Encode a UV-channel pair (both already in [0, 1]) as a 16-bit RGB
+ *  PNG. R = U * 65535, G = V * 65535, B = inside-mask (65535 where the
+ *  band pixel lies INSIDE a shape, 0 outside / no band). No
+ *  normalization, no centering — the values are already in the
+ *  encodable range. Used for the per-shape contour-band UV map.
+ *
+ *  Optional Y-flip for UV-down conventions. Pixels where U == 0 AND V == 0
+ *  are written as (0, 0, 0) — the "no band here" sentinel. */
+export async function encodeContourUvPng(
+  field: {
+    width: number; height: number;
+    fx: Float32Array; fy: Float32Array;
+    inside?: Uint8Array;
+  },
+  opts: { flipY: boolean },
+): Promise<Blob> {
+  const w = field.width;
+  const h = field.height;
+  const fx = field.fx;
+  const fy = field.fy;
+  const inside = field.inside ?? null;
+
+  const bytesPerPixel = 6;
+  const rowBytes = 1 + w * bytesPerPixel;
+  const raw = new Uint8Array(rowBytes * h);
+  for (let y = 0; y < h; y++) {
+    const rowOff = y * rowBytes;
+    raw[rowOff] = 0;
+    const srcY = opts.flipY ? (h - 1 - y) : y;
+    for (let x = 0; x < w; x++) {
+      const i = srcY * w + x;
+      const u = fx[i];
+      const v = fy[i];
+      const r = clamp16(u * 65535);
+      const g = clamp16(v * 65535);
+      const b = inside && inside[i] ? 65535 : 0;
+      const off = rowOff + 1 + x * bytesPerPixel;
+      raw[off]     = (r >>> 8) & 0xff;
+      raw[off + 1] = r & 0xff;
+      raw[off + 2] = (g >>> 8) & 0xff;
+      raw[off + 3] = g & 0xff;
+      raw[off + 4] = (b >>> 8) & 0xff;
+      raw[off + 5] = b & 0xff;
+    }
+  }
+
+  const compressed = await deflate(raw);
+  return assemblePng(w, h, compressed);
+}
+
+/** Build the PNG file bytes given the doc dimensions and pre-deflated
+ *  IDAT payload. Shared by all 16-bit-RGB encoders. */
+function assemblePng(w: number, h: number, idatPayload: Uint8Array): Blob {
   const sig = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   const ihdrData = new Uint8Array(13);
   const ihdrView = new DataView(ihdrData.buffer);
   ihdrView.setUint32(0, w, false);
   ihdrView.setUint32(4, h, false);
-  ihdrData[8] = 16;   // bit depth
-  ihdrData[9] = 2;    // color type 2 = RGB
-  ihdrData[10] = 0;   // compression
-  ihdrData[11] = 0;   // filter
-  ihdrData[12] = 0;   // interlace
+  ihdrData[8] = 16;
+  ihdrData[9] = 2;
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
 
   const ihdr = chunk('IHDR', ihdrData);
-  const idat = chunk('IDAT', compressed);
+  const idat = chunk('IDAT', idatPayload);
   const iend = chunk('IEND', new Uint8Array(0));
 
   const total = sig.length + ihdr.length + idat.length + iend.length;
@@ -93,14 +180,7 @@ export async function encodeFlowmapPng(
   png.set(ihdr, p); p += ihdr.length;
   png.set(idat, p); p += idat.length;
   png.set(iend, p);
-
   return new Blob([png], { type: 'image/png' });
-}
-
-function clamp16(v: number): number {
-  if (v < 0) return 0;
-  if (v > 65535) return 65535;
-  return Math.round(v);
 }
 
 /** zlib-wrapped deflate via the browser's CompressionStream. PNG IDAT

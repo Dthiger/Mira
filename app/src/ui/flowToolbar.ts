@@ -10,6 +10,7 @@ import {
   getFlowDefaults, exportFlowmap,
   simStep, simReset, play, pause, isSimPlaying, onPlaybackChange,
   setStepsPerFrame, setPush, setDragRadius, setTurbulenceLevel,
+  redrawPreview,
 } from '../sim/flow/index.ts';
 
 function $(sel: string): HTMLElement {
@@ -37,6 +38,7 @@ export function initFlowToolbar(): void {
   const seed = $('#flow-seed') as HTMLInputElement;
   const seedReadout = $('#flow-seed-readout');
   const flipY = $('#flow-flipy') as HTMLInputElement;
+  const subtractMean = $('#flow-subtract-mean') as HTMLInputElement;
   const reseedBtn = $('#flow-reseed-btn');
   const resetBtn = $('#flow-reset-btn');
   const exportBtn = $('#flow-export-btn');
@@ -82,6 +84,10 @@ export function initFlowToolbar(): void {
     const v = Number(seed.value);
     seedReadout.textContent = String(v);
     reseed(v);
+  });
+  subtractMean.addEventListener('change', () => {
+    exportOptions.subtractMean = subtractMean.checked;
+    redrawPreview();
   });
   flipY.addEventListener('change', () => {
     exportOptions.flipY = flipY.checked;
@@ -158,4 +164,5 @@ export function initFlowToolbar(): void {
       window.alert(`Flowmap export failed: ${(err as Error).message}`);
     }
   });
+
 }
